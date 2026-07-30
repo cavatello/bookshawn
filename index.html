@@ -663,9 +663,20 @@ function renderConfirm(){
   $("cTz").textContent = tz;
 
   $("cMode").textContent  = MODE_LABEL[B.mode];
-  $("cWhere").textContent = B.mode === "virtual"
-    ? "Secure video link, sent before we meet"
-    : CONFIG.practice.address;
+  // The Worker resolves this — office address, or the Meet/Zoom link it just
+  // created — so the page never has to know the link ahead of time.
+  var where = B.location ||
+    (B.mode === "virtual" ? "Video link, sent before we meet" : CONFIG.practice.address);
+  var cw = $("cWhere");
+  cw.textContent = "";
+  if (/^https?:\/\//.test(where)) {
+    var a = document.createElement("a");
+    a.href = where; a.textContent = "Join link"; a.target = "_blank"; a.rel = "noopener";
+    a.style.color = "#C4D2BD"; a.style.textDecoration = "underline";
+    cw.appendChild(a);
+  } else {
+    cw.textContent = where;
+  }
   $("cKind").textContent  = B.kind === "reschedule" ? "Rescheduled session" : "New session";
   $("cEmail").textContent = B.email;
 
@@ -679,7 +690,8 @@ function renderConfirm(){
 function icsBlob(){
   var B = state.booked;
   var z = function(t){ return new Date(t).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z"; };
-  var where = B.mode === "virtual" ? "Secure video link to follow" : CONFIG.practice.address;
+  var where = B.location ||
+    (B.mode === "virtual" ? "Video link to follow" : CONFIG.practice.address);
   var body = [
     "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//A Good Place Therapy//Booking//EN",
     "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "BEGIN:VEVENT",
@@ -780,7 +792,8 @@ function submitBooking(){
     res.hidden = true;
     state.booked = {
       start: s.start, end: s.end, mode: state.mode, kind: state.kind,
-      email: email, name: name, invited: o.j.invited !== false
+      email: email, name: name, invited: o.j.invited !== false,
+      location: o.j.location || ""
     };
     state.selectedSlot = null;
     render();

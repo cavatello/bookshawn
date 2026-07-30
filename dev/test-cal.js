@@ -193,6 +193,15 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   ok('confirmation states the time', /\d/.test(await page.textContent('#cWhen')));
   ok('confirmation names the email', /test@example\.com/.test(await page.textContent('#cEmail')));
   ok('confirmation names session type', /In person|Virtual/.test(await page.textContent('#cMode')));
+  // "(mock)" only exists in the Worker's response, so this proves the page is
+  // using the location the Worker resolved rather than its own fallback.
+  ok('confirmation uses the location the Worker returned',
+    /667 Lytton Ave.*\(mock\)/.test(await page.textContent('#cWhere')),
+    await page.textContent('#cWhere'));
+  {
+    const ics = await page.evaluate(() => icsBlob().text());
+    ok('ics carries that same location', /LOCATION:667 Lytton Ave.*\(mock\)/.test(ics));
+  }
   ok('confirmation says new vs reschedule', /New session|Rescheduled/.test(await page.textContent('#cKind')));
   ok('confirmation explains what happens next', (await page.textContent('#cNext')).length > 40);
   ok('add-to-calendar button present', await page.locator('#cIcs').isVisible());

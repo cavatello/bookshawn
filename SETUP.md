@@ -505,3 +505,54 @@ node dev/check-booking.js https://agp-cal.cavatello.workers.dev you@example.com
 It books a real slot on your real calendar, then tries three things that must be
 refused: a time outside your hours, a wrong duration, and a double-book of the
 slot it just took. It prints the event link so you can delete it after.
+
+---
+
+## Where the session happens
+
+Two settings in `worker/wrangler.toml` fill the event's Location field, which is
+what the client sees in the invite Google emails them.
+
+```toml
+OFFICE_ADDRESS   = "667 Lytton Ave, Suite 9, Palo Alto, CA 94301"
+VIRTUAL_LOCATION = "meet"
+```
+
+`OFFICE_ADDRESS` is used for in-person bookings. It's already public on your site,
+so a plain var is fine.
+
+`VIRTUAL_LOCATION` has three modes:
+
+| Value | Behaviour |
+|---|---|
+| `"meet"` | Google mints a **fresh Meet link for every booking**. Recommended. |
+| a URL | used as-is for every virtual session |
+| empty | invite says "video link to follow"; you send one yourself |
+
+### If you want Zoom instead
+
+**Don't put a Zoom link in `wrangler.toml`.** That file is committed to a public
+repo, and a personal-meeting-room URL is enough for anyone to walk into a session.
+Set it as a secret:
+
+```bash
+cd worker
+npx wrangler secret put VIRTUAL_LOCATION
+```
+
+Paste the URL at the prompt. It lives only in Cloudflare, same as your Google
+credentials, and overrides the var.
+
+Google Meet is still the better choice: the link is unique per booking, so there's
+no standing URL to leak, and it's already covered by the Workspace BAA you have.
+A static Zoom room is one forwarded invite away from being public.
+
+After changing either value:
+
+```bash
+cd worker && npx wrangler deploy
+```
+
+The confirmation screen and the downloadable `.ics` both use whatever the Worker
+resolved, so a Meet link created at booking time appears in all three places —
+your calendar, their invite, and the page.

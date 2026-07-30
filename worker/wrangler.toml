@@ -10,6 +10,14 @@ CALENDAR_ID    = "shawn@agoodplacetherapy.com"
 ALLOWED_ORIGIN = "https://cavatello.github.io,http://localhost:8099"
 PRACTICE_TZ    = "America/Los_Angeles"
 
+# Shown as the event Location and in the invite the client receives.
+OFFICE_ADDRESS = "667 Lytton Ave, Suite 9, Palo Alto, CA 94301"
+
+# "meet"  -> Google mints a fresh Meet link for every booking (recommended)
+# a URL   -> used as-is. For Zoom, DO NOT put it here; this file is committed to
+#            a public repo. Instead: npx wrangler secret put VIRTUAL_LOCATION
+VIRTUAL_LOCATION = "meet"
+
 # "true" adds the requester as an attendee so Google emails them a calendar
 # invite. Set "false" and no email is sent at all — the page then says only
 # that a hold was placed, never that a confirmation went out.

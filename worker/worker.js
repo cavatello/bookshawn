@@ -243,6 +243,19 @@ function insideTemplate(startMs, endMs, mode, tz) {
   });
 }
 
+// Where the session happens, as it should read in the calendar event and in the
+// invite the client receives.
+//   OFFICE_ADDRESS    plain var; already public on your site
+//   VIRTUAL_LOCATION  "meet" to have Google mint a fresh Meet link per booking,
+//                     or a Zoom URL. Set a Zoom URL as a SECRET, not a var —
+//                     wrangler.toml is committed to a public repo.
+function locationFor(mode, env) {
+  if (mode !== "virtual") return String(env.OFFICE_ADDRESS || "").trim();
+  const v = String(env.VIRTUAL_LOCATION || "").trim();
+  if (!v || v.toLowerCase() === "meet") return "";   // Meet link is attached separately
+  return v;
+}
+
 async function handleBook(body, env) {
   const { start, end, mode, name, email, notes, viewerTz, kind } = body || {};
   const tz = env.PRACTICE_TZ || "America/Los_Angeles";
@@ -282,6 +295,7 @@ async function handleBook(body, env) {
     end: { dateTime: new Date(e).toISOString(), timeZone: tz },
     // Colour 5 = banana, so website holds are visually distinct from real sessions.
     colorId: "5",
+    location: locationFor(mode, env),
     transparency: "opaque",
     reminders: { useDefault: true },
   };
@@ -292,9 +306,23 @@ async function handleBook(body, env) {
   const invite = String(env.SEND_INVITES ?? "true") !== "false";
   if (invite) event.attendees = [{ email: String(email).trim(), responseStatus: "needsAction" }];
 
+  // Ask Google for a per-event Meet link. Unique each time, so there is no
+  // standing URL that could leak.
+  const wantMeet = mode === "virtual" &&
+    String(env.VIRTUAL_LOCATION || "").trim().toLowerCase() === "meet";
+  if (wantMeet) {
+    event.conferenceData = {
+      createRequest: {
+        requestId: crypto.randomUUID(),
+        conferenceSolutionKey: { type: "hangoutsMeet" },
+      },
+    };
+  }
+
   const r = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(env.CALENDAR_ID)}/events` +
-    `?sendUpdates=${invite ? "all" : "none"}`,
+    `?sendUpdates=${invite ? "all" : "none"}` +
+    (wantMeet ? "&conferenceDataVersion=1" : ""),
     {
       method: "POST",
       headers: { authorization: "Bearer " + token, "content-type": "application/json" },
@@ -304,5 +332,11 @@ async function handleBook(body, env) {
   const j = await r.json();
   if (!r.ok) throw fail("Could not write the hold: " + (j.error?.message || r.status), 502);
 
-  return { ok: true, htmlLink: j.htmlLink, id: j.id, invited: invite };
+  // Hand the resolved location back so the page can show it on the confirmation
+  // and put it in the .ics the visitor downloads.
+  const meetLink = j.conferenceData?.entryPoints?.find((e) => e.entryPointType === "video")?.uri;
+  return {
+    ok: true, htmlLink: j.htmlLink, id: j.id, invited: invite,
+    location: meetLink || j.location || "",
+  };
 }
