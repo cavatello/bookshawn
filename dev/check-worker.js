@@ -49,12 +49,28 @@ if (!BASE || !/^https?:\/\//.test(BASE)) {
   ok(`reachable (HTTP ${res.status})`);
 
   if (res.status !== 200) {
+    // Order matters, and patterns must be specific: "The OAuth client was not
+    // found" contains "not found", so a loose /not found/ pattern here would
+    // mis-diagnose an auth failure as a wrong URL path.
     const hints = [
-      [/invalid_grant/i, "Refresh token is dead. Consent screen External+Testing expires\ntokens after 7 days — set User Type to Internal and re-issue."],
-      [/invalid_client/i, "Client ID and secret don't match. Re-copy both from the same\nOAuth client, then: npx wrangler secret put GOOGLE_CLIENT_SECRET"],
-      [/Cannot read calendar/i, "CALENDAR_ID in wrangler.toml doesn't match a readable calendar."],
-      [/403/, "Enable the Google Calendar API for this Cloud project."],
-      [/Not found/i, "Wrong path. It is /freebusy, lowercase."],
+      [/OAuth client was not found/i,
+        "GOOGLE_CLIENT_ID is missing or wrong on the Worker.\nCheck:  npx wrangler secret list\nIf the three names aren't exactly GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,\nGOOGLE_REFRESH_TOKEN, the values went on the command line by mistake.\nRun `npx wrangler secret put NAME` alone, then paste at the prompt."],
+      [/invalid_grant/i,
+        "Refresh token is dead. Consent screen External+Testing expires\ntokens after 7 days — set User Type to Internal and re-issue."],
+      [/invalid_client|Unauthorized/i,
+        "GOOGLE_CLIENT_SECRET does not match GOOGLE_CLIENT_ID.\n" +
+        "Google says 'Unauthorized' here when the secret is wrong or belongs to a\n" +
+        "different (often deleted) OAuth client. Copy the secret again from\n" +
+        "Console -> Credentials -> your client -> and re-run:\n" +
+        "  npx wrangler secret put GOOGLE_CLIENT_SECRET"],
+      [/Cannot read calendar/i,
+        "CALENDAR_ID in wrangler.toml doesn't match a readable calendar."],
+      [/unauthorized_client/i,
+        "Create a 'Web application' OAuth client, not Desktop or Service Account."],
+      [/Calendar read failed: 403/i,
+        "Enable the Google Calendar API for this Cloud project."],
+      [/^\{"error":"Not found"\}$/,
+        "Wrong path. It is /freebusy, lowercase."],
     ];
     const hit = hints.find(([re]) => re.test(body));
     bad(`Worker returned ${res.status}: ${body.slice(0, 200)}`, hit ? hit[1] : null);

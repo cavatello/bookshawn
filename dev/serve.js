@@ -42,6 +42,16 @@ const server = http.createServer((req, res) => {
   }
 
   const ROOT = path.join(__dirname, '..');
+  // /blank/ serves index.html with apiBase emptied, so the suite can exercise
+  // the never-configured path without the page firing a real cross-origin
+  // request at the deployed Worker (which logs a CORS error and muddies test 1).
+  if (u.pathname === '/blank' || u.pathname === '/blank/') {
+    let h = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    h = h.replace(/apiBase:\s*"[^"]*"/, 'apiBase: ""');
+    res.writeHead(200, { 'content-type': 'text/html' });
+    return res.end(h);
+  }
+
   let p = path.join(ROOT, u.pathname === '/' ? 'index.html' : u.pathname);
   if (fs.existsSync(p) && fs.statSync(p).isDirectory()) p = path.join(p, 'index.html');
   if (!fs.existsSync(p)) { res.writeHead(404); return res.end('nf'); }

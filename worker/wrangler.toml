@@ -5,8 +5,15 @@ compatibility_date = "2026-07-01"
 [vars]
 # Comma-separated if sessions live on more than one calendar.
 CALENDAR_ID    = "shawn@agoodplacetherapy.com"
-ALLOWED_ORIGIN = "https://cavatello.github.io"
+# Comma-separated. localhost is included so `node dev/serve.js` can reach the
+# Worker during development. Remove it if you'd rather only the live site can.
+ALLOWED_ORIGIN = "https://cavatello.github.io,http://localhost:8099"
 PRACTICE_TZ    = "America/Los_Angeles"
+
+# "true" adds the requester as an attendee so Google emails them a calendar
+# invite. Set "false" and no email is sent at all — the page then says only
+# that a hold was placed, never that a confirmation went out.
+SEND_INVITES   = "true"
 
 # Secrets are NOT set here. Run these once after `wrangler login`:
 #   npx wrangler secret put GOOGLE_CLIENT_ID

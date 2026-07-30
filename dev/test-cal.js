@@ -14,7 +14,9 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   const errs = [];
   page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   page.on('pageerror', e => errs.push('PAGEERROR ' + e.message));
-  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  // /blank/ is index.html with apiBase emptied — the never-configured path,
+  // without the page reaching out to the real Worker.
+  await page.goto(BASE + '/blank/', { waitUntil: 'networkidle' });
   await page.waitForTimeout(400);
 
   ok('no console/page errors', errs.length === 0, errs.join(' | '));
@@ -31,7 +33,9 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   ok('header is the scheduling wordmark, not the practice name',
     /Real-time scheduling availability/i.test(await page.textContent('.masthead')) &&
     !/A Good Place Therapy/.test(await page.textContent('.masthead')));
-  ok('pixel avatar in header', (await page.locator('.masthead svg.avatar rect').count()) > 40);
+  ok('pixel therapist in the hero, not the header',
+    (await page.locator('.hero-art svg rect').count()) > 100 &&
+    (await page.locator('.masthead svg').count()) === 0);
   ok('footer names the employer',
     /Employed by A Good Place Therapy/.test(await page.textContent('.sitefoot')));
   ok('no session-hours claim anywhere',
@@ -131,7 +135,7 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   page.on('console', m => { if (m.type() === 'error') errs2.push(m.text()); });
   page.on('pageerror', e => errs2.push('PAGEERROR ' + e.message));
   await page.addInitScript((api) => { window.__API = api; }, BASE + '/api');
-  await page.goto(BASE + '/');
+  await page.goto(BASE + '/blank/');
   await page.evaluate(() => { CONFIG.apiBase = window.__API; loadBusy(); });
   await page.waitForTimeout(600);
 
@@ -203,7 +207,7 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   // ---------- 5. API FAILURE DEGRADES HONESTLY ----------
   console.log('\n[5] Backend down');
   const p5 = await ctx.newPage();
-  await p5.goto(BASE + '/');
+  await p5.goto(BASE + '/blank/');
   await p5.evaluate((api) => { CONFIG.apiBase = api; loadBusy(); }, BASE + '/api/fail-');
   await p5.waitForTimeout(500);
   ok('falls back to stale banner', (await p5.getAttribute('#status', 'class')).includes('is-stale'));
@@ -220,7 +224,7 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   const pNY = await ctxNY.newPage();
   const errsNY = [];
   pNY.on('pageerror', e => errsNY.push(e.message));
-  await pNY.goto(BASE + '/');
+  await pNY.goto(BASE + '/blank/');
   await pNY.evaluate((api) => { CONFIG.apiBase = api; loadBusy(); }, BASE + '/api');
   await pNY.waitForTimeout(500);
   await pNY.click('.mode[data-mode="inperson"]');
@@ -254,7 +258,7 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   const pm = await ctxM.newPage();
   const errsM = [];
   pm.on('pageerror', e => errsM.push(e.message));
-  await pm.goto(BASE + '/');
+  await pm.goto(BASE + '/blank/');
   await pm.evaluate((api) => { CONFIG.apiBase = api; loadBusy(); }, BASE + '/api');
   await pm.waitForTimeout(500);
   ok('no errors on mobile', errsM.length === 0, errsM.join('|'));

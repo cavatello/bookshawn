@@ -21,11 +21,14 @@ bookshawn/
 │   ├── worker.js       deploys to Cloudflare, NOT served by Pages
 │   └── wrangler.toml
 └── dev/
-    ├── serve.js         local test harness
-    ├── test-cal.js      47 assertions
-    ├── check-google.js  validates your Google credentials
-    ├── check-worker.js  validates the deployed Worker
-    └── place-files.sh   one-time: moves downloads into this layout
+    ├── watch.js          save a file and it ships (see below)
+    ├── serve.js          local test harness
+    ├── test-cal.js       69 assertions
+    ├── get-token.js      issues a Google refresh token
+    ├── check-google.js   validates your Google credentials
+    ├── check-worker.js   validates the deployed Worker
+    ├── check-booking.js  books a real slot end to end
+    └── place-files.sh    one-time: moves downloads into this layout
 ```
 
 Only `index.html` is ever served to visitors. The rest sits in the repo for
@@ -450,3 +453,55 @@ so strip or reformat it however you like.
 becomes a licence number, the supervisor line comes out, and `AMFT` becomes `LMFT`
 in `clinician`. Eight assertions in `dev/test-cal.js` currently pin the associate
 details; update those at the same time or they'll fail loudly, which is the point.
+
+---
+
+## Day-to-day: dev/watch.js
+
+```bash
+cd ~/bookshawn && node dev/watch.js
+```
+
+Watches the repo **and** `~/Downloads`. On any change it waits for you to stop
+typing, then runs the suite, commits, pushes, redeploys the Worker if `worker/`
+changed, and polls Pages until the new build is serving.
+
+Two things it refuses to do:
+
+- **Push when a test fails.** The suite knows the footer must disclose your
+  supervisor and employer, that no slots appear without a live calendar, and that
+  the weekly template stays unpublished. A bad push is public within a minute.
+- **Push anything credential-shaped.** It scans staged additions for Google
+  refresh tokens (`1//…`), client secrets (`GOCSPX-…`), access tokens (`ya29.…`),
+  private keys, and AWS keys. A hit unstages everything and stops. Auto-push means
+  a mistake is public in seconds and git history is hard to scrub.
+
+It also picks up files dropped in `~/Downloads`, handling browser renaming
+(`index_9.html`, `index (1).html`, a bare `wrangler`), taking the newest only when
+it differs from what's in place. So: click download, and it's live in about a
+minute.
+
+| Flag | Effect |
+|---|---|
+| `--dry` | print what would happen, change nothing |
+| `--no-test` | push without running the suite |
+| `--no-deploy` | never touch Cloudflare |
+| `--delay=N` | seconds of quiet before acting (default 3) |
+
+It commits on every save, so history is granular. Run with `--dry` while drafting
+and push by hand if you'd rather batch.
+
+---
+
+## Verifying the booking write
+
+`check-worker.js` only proves reading works. To prove the whole booking path,
+including the invite email:
+
+```bash
+node dev/check-booking.js https://agp-cal.cavatello.workers.dev you@example.com
+```
+
+It books a real slot on your real calendar, then tries three things that must be
+refused: a time outside your hours, a wrong duration, and a double-book of the
+slot it just took. It prints the event link so you can delete it after.

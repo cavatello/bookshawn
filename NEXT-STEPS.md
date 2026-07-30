@@ -121,7 +121,31 @@ From the repo root. **Leading space on each line** keeps them out of shell histo
 
 Compare those ranges against Google Calendar. They should match.
 
-Two ways this goes wrong, both worth catching now:
+### If it fails on the refresh token
+
+Two failures together — `doesn't start with 1//` plus `invalid_grant` — mean the
+token isn't a refresh token. Either you copied the access token (`ya29...`, dies in
+an hour), or the Playground's **Access type** was *Online*, in which case Google
+never issued a refresh token at all.
+
+Skip the Playground and use this instead. It forces `access_type=offline` and
+`prompt=consent`, which is what actually guarantees a refresh token, and prints
+exactly one value so there's nothing to pick wrong:
+
+```bash
+  GOOGLE_CLIENT_ID='...apps.googleusercontent.com' \
+  GOOGLE_CLIENT_SECRET='GOCSPX-...' \
+  node ~/bookshawn/dev/get-token.js
+```
+
+It prints a redirect URI to add in Google Cloud Console first
+(`http://localhost:8910`), then a URL to open. Authorise as
+shawn@agoodplacetherapy.com and the refresh token appears in your terminal under a
+clear heading.
+
+Then re-run `check-google.js` with it.
+
+Other ways this goes wrong:
 
 - **`invalid_grant`** — the consent screen is External and sitting in "Testing", so
   the token already expired. Set User Type to **Internal** and re-issue.
@@ -286,3 +310,21 @@ Send me:
 - for a Worker problem, output of `cd worker && npx wrangler tail` while you curl it
 
 Both checkers print diagnostics, never secrets, so the output is safe to paste.
+
+---
+
+## After it's live
+
+Day to day you don't run any of the above. Start the watcher and forget it:
+
+```bash
+cd ~/bookshawn && node dev/watch.js
+```
+
+Save a file, or drop a new one in `~/Downloads`, and it tests, commits, pushes,
+redeploys the Worker if needed, and tells you when the change is actually serving.
+It refuses to push failing tests or anything that looks like a credential.
+
+Changing your *hours* still means editing `AVAILABILITY` in **both** `index.html`
+and `worker/worker.js` — see SETUP.md. Everything else — a client reschedules, you
+block an afternoon, you take a week off — is just Google Calendar.
