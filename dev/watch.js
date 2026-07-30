@@ -34,6 +34,7 @@ const has = (f) => ARGV.includes(f);
 const DRY = has("--dry");
 const NO_TEST = has("--no-test");
 const NO_DEPLOY = has("--no-deploy");
+const AUTO_INSTALL = has("--auto-install");
 const DELAY = (Number((ARGV.find((a) => a.startsWith("--delay=")) || "").split("=")[1]) || 3) * 1000;
 
 const LIVE = "https://cavatello.github.io/bookshawn/";
@@ -76,7 +77,8 @@ console.log();
 console.log(bold("  Watching " + ROOT));
 console.log(dim("  branch " + BRANCH + "  ·  quiet period " + DELAY / 1000 + "s" +
   (DRY ? "  ·  DRY RUN" : "") + (NO_TEST ? "  ·  tests off" : "") +
-  (NO_DEPLOY ? "  ·  deploy off" : "")));
+  (NO_DEPLOY ? "  ·  deploy off" : "") +
+  (AUTO_INSTALL ? "  ·  auto-install ON" : "")));
 console.log(dim("  Ctrl-C to stop.\n"));
 
 /* ---------- the pipeline ---------- */
@@ -232,6 +234,48 @@ function pollPages() {
   }, 20000);
 }
 
+/* ---------- run a downloaded installer bundle ---------- */
+// Executing a shell script out of Downloads is a real footgun, so this is
+// opt-in (--auto-install) AND the file must carry the marker line below.
+// A random install.sh from anywhere else will not be run.
+const INSTALL_MARKER = "# bookshawn-installer";
+let lastInstallMtime = 0;
+
+function runInstaller() {
+  if (!AUTO_INSTALL) return false;
+  let best = null, bestT = 0;
+  try {
+    for (const f of fs.readdirSync(DOWNLOADS)) {
+      if (!/^install.*\.sh$/.test(f)) continue;
+      const full = path.join(DOWNLOADS, f);
+      const st = fs.statSync(full);
+      if (st.isFile() && st.mtimeMs > bestT) { bestT = st.mtimeMs; best = full; }
+    }
+  } catch { return false; }
+  if (!best || bestT <= lastInstallMtime) return false;
+
+  let head = "";
+  try { head = fs.readFileSync(best, "utf8").slice(0, 400); } catch { return false; }
+  if (!head.includes(INSTALL_MARKER)) {
+    log(y("ignoring " + path.basename(best) + " — no bookshawn-installer marker"));
+    lastInstallMtime = bestT;
+    return false;
+  }
+
+  lastInstallMtime = bestT;
+  if (DRY) { log(y("[dry] would run " + path.basename(best))); return false; }
+  log("running " + path.basename(best) + "…");
+  try {
+    const out = execSync("bash " + JSON.stringify(best) + " " + JSON.stringify(ROOT),
+      { cwd: ROOT, encoding: "utf8" });
+    log(g("installer wrote " + (out.match(/wrote/g) || []).length + " file(s)"));
+    return true;
+  } catch (e) {
+    log(r("installer failed: " + String(e.stdout || e.message).trim().split("\n").slice(-2).join(" ")));
+    return false;
+  }
+}
+
 /* ---------- pull new downloads into place ---------- */
 function pullDownloads() {
   if (!fs.existsSync(DOWNLOADS)) return [];
@@ -294,15 +338,15 @@ if (fs.existsSync(DOWNLOADS)) {
     if (running) return;
     clearTimeout(timer);
     timer = setTimeout(() => {
+      const installed = runInstaller();
       const moved = pullDownloads();
-      if (!moved.length) return;
-      const batch = new Set(moved); pending = new Set();
-      ship(batch);
+      if (!installed && !moved.length) return;
+      pending = new Set();
+      ship(new Set(installed ? ["install bundle"] : moved));
     }, DELAY);
   });
-  // catch anything already sitting there
-  const initial = pullDownloads();
-  if (initial.length) schedule(initial[0]);
+  if (runInstaller()) schedule("install bundle");
+  else { const initial = pullDownloads(); if (initial.length) schedule(initial[0]); }
 }
 
 process.on("SIGINT", () => { console.log(dim("\n  stopped\n")); process.exit(0); });

@@ -204,19 +204,79 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   }
   ok('confirmation says new vs reschedule', /New session|Rescheduled/.test(await page.textContent('#cKind')));
   ok('confirmation explains what happens next', (await page.textContent('#cNext')).length > 40);
-  ok('add-to-calendar button present', await page.locator('#cIcs').isVisible());
+  ok('in-person shows the Getting here panel', await page.locator('#arrive').isVisible());
+  ok('arrival lists parking, brick and waiting room', await (async () => {
+      const t = await page.textContent('#aList');
+      return /Bryant/.test(t) && /red brick/.test(t) && /waiting room/.test(t);
+    })(), await page.textContent('#aList'));
+  {
+    const gm = await page.getAttribute('#aGmap', 'href');
+    const am = await page.getAttribute('#aAmap', 'href');
+    ok('google maps link targets the office',
+      /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/.test(gm) &&
+      /667%20Lytton%20Ave/.test(gm), gm && gm.slice(0, 90));
+    ok('apple maps link targets the office',
+      /^https:\/\/maps\.apple\.com\/\?q=/.test(am) && /667%20Lytton/.test(am),
+      am && am.slice(0, 80));
+  }
+  ok('photo hidden until one is configured', await page.locator('#aPhoto').isHidden());
+  ok('arrival gives a contact number', /971-514-2190/.test(await page.textContent('#aContact')));
+  ok('add-to-calendar options present',
+    (await page.locator('#cGoogle').isVisible()) &&
+    (await page.locator('#cOutlook').isVisible()) &&
+    (await page.locator('#cIcs').isVisible()));
+  {
+    const gh = await page.getAttribute('#cGoogle', 'href');
+    const oh = await page.getAttribute('#cOutlook', 'href');
+    ok('google link is a valid TEMPLATE url with a date range',
+      /^https:\/\/calendar\.google\.com\/calendar\/render\?/.test(gh) &&
+      /action=TEMPLATE/.test(gh) &&
+      /dates=\d{8}T\d{6}Z%2F\d{8}T\d{6}Z/.test(gh), gh && gh.slice(0, 90));
+    ok('google link carries the location the Worker returned',
+      /667\+Lytton|667%20Lytton/.test(gh), gh && gh.slice(0, 140));
+    ok('outlook link is a valid compose deeplink',
+      /^https:\/\/outlook\.live\.com\/calendar\/0\/deeplink\/compose\?/.test(oh) &&
+      /startdt=\d{4}-\d{2}-\d{2}T/.test(oh), oh && oh.slice(0, 90));
+    const dur = await page.evaluate(() => {
+      const u = new URL(document.querySelector('#cOutlook').href);
+      return (Date.parse(u.searchParams.get('enddt')) - Date.parse(u.searchParams.get('startdt'))) / 60000;
+    });
+    ok('outlook link duration is 53 minutes', dur === 53, String(dur));
+  }
   {
     const ics = await page.evaluate(() => icsBlob().text());
     ok('ics is valid and carries the session',
       /BEGIN:VCALENDAR/.test(ics) && /DTSTART:\d{8}T\d{6}Z/.test(ics) &&
       /SUMMARY:Session with Shawn Walters/.test(ics), ics.slice(0, 60));
   }
+  // Grab the in-person POST now — the virtual booking below replaces the mock's
+  // record of the last request.
+  const booked = await (await ctx.newPage()).goto(BASE + '/__lastbook').then(r => r.json());
+
   await page.click('#cAgain');
   await page.waitForTimeout(400);
   ok('pick-another restores the picker',
     (await page.locator('#confirm').isHidden()) && (await page.locator('#rail').isVisible()));
 
-  const booked = await (await ctx.newPage()).goto(BASE + '/__lastbook').then(r => r.json());
+  // Directions must not appear on a virtual booking.
+  await page.click('.mode[data-mode="virtual"]');
+  await page.waitForTimeout(300);
+  {
+    const vDays = page.locator('.rail .day:not(.is-empty)');
+    if (await vDays.count()) {
+      await vDays.first().click(); await page.waitForTimeout(250);
+      await page.locator('#slots .slot').first().click(); await page.waitForTimeout(200);
+      await page.fill('#bName', 'Virtual Person');
+      await page.fill('#bEmail', 'v@example.com');
+      await page.click('#bSubmit'); await page.waitForTimeout(900);
+      ok('virtual booking hides the Getting here panel',
+        await page.locator('#arrive').isHidden());
+      ok('virtual booking shows a join link',
+        /Join link/.test(await page.textContent('#cWhere')), await page.textContent('#cWhere'));
+      await page.click('#cAgain'); await page.waitForTimeout(300);
+    }
+  }
+
   ok('POST body has ISO start', !!Date.parse(booked.start));
   ok('POST duration is exactly 53 min',
     Math.round((Date.parse(booked.end) - Date.parse(booked.start)) / 60000) === 53);

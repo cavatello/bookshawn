@@ -23,7 +23,8 @@ bookshawn/
 └── dev/
     ├── watch.js          save a file and it ships (see below)
     ├── serve.js          local test harness
-    ├── test-cal.js       69 assertions
+    ├── test-cal.js       90 assertions
+    ├── test-devices.js   159 checks across 11 viewports
     ├── get-token.js      issues a Google refresh token
     ├── check-google.js   validates your Google credentials
     ├── check-worker.js   validates the deployed Worker
@@ -397,12 +398,23 @@ node serve.js &                     # static + mock Google on :8099
 node test-cal.js
 ```
 
-`serve.js` serves the repo root from inside `dev/`, so the layout above works as
-committed. Verified: 47/47 from exactly this structure.
+`serve.js` serves the repo root from inside `dev/`, and `/blank/` returns the
+page with `apiBase` emptied so the never-configured path can be tested without
+calling the live Worker.
 
-39 assertions: slot math against hand-calculated counts, busy-block subtraction,
-the 24-hour notice floor, cross-timezone rendering, backend-down fallback, the
-booking POST shape, and mobile at 390×844.
+**`test-cal.js` — 90 assertions.** Slot maths against hand-calculated counts,
+busy-block subtraction, the 24-hour notice floor, cross-timezone rendering,
+fail-closed behaviour when the calendar is unreachable, the booking POST shape,
+the confirmation panel, generated Google/Outlook/`.ics` links including a parsed
+53-minute duration, and the arrival panel appearing for in-person but not virtual.
+Also pins your AMFT number, supervisor and employer — those will fail when you get
+licensed, which is deliberate.
+
+**`test-devices.js` — 159 checks across 11 viewports.** iPhone SE through 1920px
+wide, plus landscape and a 320px floor. Each runs the full booking flow and checks
+for horizontal overflow, elements past the viewport edge, overlapping controls,
+44px tap targets on touch, 16px inputs (Safari zooms the page below that), and
+text under 11px.
 
 ---
 
@@ -487,6 +499,20 @@ minute.
 | `--no-test` | push without running the suite |
 | `--no-deploy` | never touch Cloudflare |
 | `--delay=N` | seconds of quiet before acting (default 3) |
+| `--auto-install` | run an `install.sh` bundle dropped in Downloads |
+
+### --auto-install
+
+With this flag, downloading an `install.sh` I've given you is the whole workflow:
+the watcher unpacks it, runs the tests, commits, pushes, redeploys the Worker if
+`worker/` changed, and waits for Pages to serve it. You don't touch the terminal
+after starting the watcher once.
+
+Running a shell script straight out of Downloads is a genuine footgun, so it's
+gated twice. The flag is off by default, and the file must contain the line
+`# bookshawn-installer` near the top. Anything else named `install.sh` is skipped
+with a note. Verified: an unmarked script that tries to touch a file is refused
+without executing.
 
 It commits on every save, so history is granular. Run with `--dry` while drafting
 and push by hand if you'd rather batch.
@@ -529,19 +555,40 @@ so a plain var is fine.
 | a URL | used as-is for every virtual session |
 | empty | invite says "video link to follow"; you send one yourself |
 
-### If you want Zoom instead
+### Switching from Meet to Zoom
 
 **Don't put a Zoom link in `wrangler.toml`.** That file is committed to a public
 repo, and a personal-meeting-room URL is enough for anyone to walk into a session.
-Set it as a secret:
+
+Order matters here. Cloudflare's precedence when a var and a secret share a name
+isn't something to rely on — `wrangler deploy` can overwrite a secret with a var
+of the same name. So remove the var first, deploy, then set the secret:
 
 ```bash
-cd worker
+cd ~/bookshawn/worker
+```
+
+Delete this line from `wrangler.toml`:
+
+```toml
+VIRTUAL_LOCATION = "meet"
+```
+
+Then:
+
+```bash
+npx wrangler deploy
+```
+
+```bash
 npx wrangler secret put VIRTUAL_LOCATION
 ```
 
-Paste the URL at the prompt. It lives only in Cloudflare, same as your Google
-credentials, and overrides the var.
+Paste your Zoom URL at the prompt. It lives only in Cloudflare, same as your
+Google credentials, and never enters the repo.
+
+To go back to Meet: `npx wrangler secret delete VIRTUAL_LOCATION`, restore the
+var, redeploy.
 
 Google Meet is still the better choice: the link is unique per booking, so there's
 no standing URL to leak, and it's already covered by the Workspace BAA you have.
@@ -556,3 +603,71 @@ cd worker && npx wrangler deploy
 The confirmation screen and the downloadable `.ics` both use whatever the Worker
 resolved, so a Meet link created at booking time appears in all three places —
 your calendar, their invite, and the page.
+
+---
+
+## Adding the session to the client's own calendar
+
+The confirmation screen offers three routes, which between them cover every
+common setup:
+
+| Button | What it does |
+|---|---|
+| **Google Calendar** | opens a pre-filled event in Google Calendar on the web |
+| **Outlook** | opens a pre-filled event in Outlook on the web |
+| **Apple Calendar · .ics** | downloads a standard `.ics` file |
+
+The `.ics` is the catch-all. On iPhone and iPad, opening it hands the event
+straight to the Calendar app. On a Mac it opens Apple Calendar. On Windows it
+opens desktop Outlook. Thunderbird, Fantastical and everything else read it too.
+
+All three carry the same data: title, start and end, and whatever location the
+Worker resolved — your office address, or the Meet/Zoom link created at booking.
+The `.ics` is generated in the browser, so nothing extra is sent anywhere.
+
+None of this is required, incidentally. Google already emails them a proper
+invitation with Yes/No/Maybe buttons the moment the booking lands. These buttons
+are for people who'd rather add it by hand, or who booked from a device that
+isn't where their calendar lives.
+
+---
+
+## Directions for in-person bookings
+
+The confirmation screen shows a **Getting here** panel — office address, Google
+Maps and Apple Maps buttons, your arrival notes, and a tappable phone number.
+It appears only for in-person bookings; virtual ones show a join link instead.
+
+All of it lives in `CONFIG.practice` in `index.html`:
+
+```js
+photo:    "",                       // optional, see below
+photoAlt: "The red brick building at 667 Lytton Ave",
+arrival: [
+  "The building is red brick. There's no parking on the premises.",
+  "Park on Bryant Avenue, at the Bryant and Lytton intersection.",
+  ...
+]
+```
+
+Each string becomes a bulleted line. Edit, reorder or add freely.
+
+### Adding a photo
+
+Take a picture of the frontage, save it as `office.jpg` in the repo root, and set:
+
+```js
+photo: "office.jpg",
+```
+
+A photo of the red brick building is genuinely more useful than a map tile —
+"red brick, no reception staff" is what someone actually needs when they're
+standing on Lytton looking at three doors. Keep it under ~300KB.
+
+### Why there's no embedded map
+
+An embedded, interactive Google Map needs a Maps JavaScript API key, which means
+a billing account and key restrictions to maintain. The keyless embed URL that
+used to work now returns a 301 — I tested it. The Maps and Apple Maps buttons
+open the native app on a phone and the web map on a desktop, which is what
+people do with an address anyway.

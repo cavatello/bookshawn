@@ -89,8 +89,10 @@
   .railhead{display:flex; align-items:baseline; justify-content:space-between; margin:26px 0 10px; gap:12px;}
   .railhead h2{font-family:'Fraunces',serif; font-weight:600; font-size:17px; margin:0; letter-spacing:-.01em;}
   .railnav{display:flex; gap:6px;}
-  .railnav button{width:30px; height:30px; border-radius:8px; border:1px solid var(--line);
-    background:#fff; color:var(--muted); cursor:pointer; font-size:14px; line-height:1;}
+  .railnav button{width:38px; height:38px; border-radius:9px; border:1px solid var(--line);
+    background:#fff; color:var(--muted); cursor:pointer; font-size:15px; line-height:1;}
+  /* Touch devices need a 44px minimum (iOS HIG). */
+  @media (pointer:coarse){ .railnav button{width:44px; height:44px;} }
   .railnav button:hover:not(:disabled){background:#F7F8F2; color:var(--ink);}
   .railnav button:disabled{opacity:.35; cursor:default;}
 
@@ -101,14 +103,14 @@
   .day:hover:not(.is-empty){border-color:var(--muted-2);}
   .day.is-empty{cursor:default; background:#EDEEE6; opacity:.6;}
   .day.is-sel{border-color:var(--ink); border-width:1.5px; box-shadow:0 1px 3px rgba(38,36,30,.09);}
-  .day-dow{font-size:9.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted-2); font-weight:600;}
+  .day-dow{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted-2); font-weight:600;}
   .day-num{font-family:'Fraunces',serif; font-size:19px; font-weight:600; line-height:1;}
   .day.is-empty .day-num{color:var(--muted-2); font-weight:400;}
   .day-dots{display:flex; gap:2.5px; flex-wrap:wrap; justify-content:center; max-width:44px; min-height:6px;}
   .day-dots i{width:5px; height:5px; border-radius:50%; display:block;}
   .m-virtual .day-dots i{background:var(--sage);}
   .m-inperson .day-dots i{background:var(--forest);}
-  .day-none{font-size:9.5px; color:var(--muted-2);}
+  .day-none{font-size:11px; color:var(--muted-2);}
 
   /* ===== Slots ===== */
   /* ===== Booking confirmation ===== */
@@ -128,7 +130,28 @@
   .crow span{color:#9DAB98;}
   .crow b{color:#E9EBE1; font-weight:500; text-align:right;}
   .confirm-next{font-size:13.5px; line-height:1.65; color:#C4D2BD; margin:0 0 22px;}
+  /* ===== Getting here (in-person only) ===== */
+  .arrive{margin:0 0 24px; padding:20px 20px 22px; border-radius:12px;
+    background:rgba(255,255,255,.06); border:1px solid #47603F;}
+  .arrive-h{font-family:'Fraunces',serif; font-size:16px; font-weight:600;
+    margin:0 0 6px; color:#F2F3ED;}
+  .arrive-addr{font-size:14px; line-height:1.5; margin:0 0 14px; color:#C4D2BD;}
+  .arrive-maps{display:flex; gap:10px; flex-wrap:wrap; margin:0 0 16px;}
+  .arrive-maps a{text-decoration:none;}
+  .arrive-photo{width:100%; max-width:340px; border-radius:10px; margin:0 0 16px;
+    border:1px solid #47603F;}
+  .arrive-list{margin:0 0 14px; padding:0; list-style:none;}
+  .arrive-list li{position:relative; padding:0 0 0 18px; margin:0 0 8px;
+    font-size:13.5px; line-height:1.6; color:#C4D2BD;}
+  .arrive-list li:before{content:""; position:absolute; left:0; top:8px;
+    width:5px; height:5px; border-radius:50%; background:var(--sage);}
+  .arrive-contact{font-size:13px; line-height:1.6; color:#9DAB98; margin:0;}
+  .arrive-contact a{color:#E9EBE1;}
+
+  .confirm-add{font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    font-weight:600; color:#9DAB98; margin:0 0 10px;}
   .confirm-actions{display:flex; gap:10px; flex-wrap:wrap;}
+  .confirm-actions a{text-decoration:none;}
   .cta-light{display:inline-flex; align-items:center; gap:8px; padding:11px 20px;
     border-radius:9px; border:none; background:#F2F3ED; color:#1C1E1A;
     font-size:13.5px; font-weight:600; cursor:pointer;}
@@ -163,8 +186,10 @@
   .field{margin-bottom:11px;}
   .field label{display:block; font-size:11.5px; font-weight:600; color:var(--muted);
     letter-spacing:.03em; margin-bottom:4px;}
-  .field input,.field textarea{width:100%; padding:9px 11px; border-radius:8px;
-    border:1px solid #D5D8CB; background:#F7F8F2; font-family:inherit; font-size:13.5px; color:var(--ink);}
+  /* 16px is not a style choice: Safari on iOS zooms the whole page when a
+     focused input is smaller, which throws the layout mid-form. */
+  .field input,.field textarea{width:100%; padding:11px 12px; border-radius:8px;
+    border:1px solid #D5D8CB; background:#F7F8F2; font-family:inherit; font-size:16px; color:var(--ink);}
   .field textarea{min-height:62px; resize:vertical;}
   .chips{display:flex; gap:8px; flex-wrap:wrap;}
   .chip{padding:9px 16px; border-radius:9px; border:1.5px solid var(--line);
@@ -191,6 +216,11 @@
     margin:0 0 5px; color:#E9EBE1;}
   .foot-line{margin:0 0 3px; font-size:12px; line-height:1.6; color:#B9C4B4;}
   .foot-a{color:#E9EBE1; text-decoration:none; border-bottom:1px solid #5E7359;}
+  /* A phone number is something people aim a thumb at, so give it a real target.
+     The 988 link stays inline in its sentence, where enlarging breaks the line. */
+  #fPhone{display:inline-block; padding:12px 2px; border-bottom:none;
+    text-decoration:underline; text-underline-offset:4px;}
+  @media (pointer:coarse){ #fPhone{padding:15px 2px;} }
   .foot-a:hover{border-bottom-color:#B9C4B4;}
   .sitefoot-by{margin:0; padding-top:18px; border-top:1px solid #47603F;
     font-size:11.5px; line-height:1.7; color:#9DAB98;}
@@ -290,8 +320,25 @@
       <div class="crow"><span>Confirmation sent to</span><b id="cEmail"></b></div>
     </div>
     <p class="confirm-next" id="cNext"></p>
+    <div class="arrive" id="arrive" hidden>
+      <p class="arrive-h">Getting here</p>
+      <p class="arrive-addr" id="aAddr"></p>
+      <div class="arrive-maps">
+        <a class="cta-light" id="aGmap" target="_blank" rel="noopener">Open in Google Maps</a>
+        <a class="cta-ghost" id="aAmap" target="_blank" rel="noopener">Apple Maps</a>
+      </div>
+      <img class="arrive-photo" id="aPhoto" alt="" hidden />
+      <ul class="arrive-list" id="aList"></ul>
+      <p class="arrive-contact" id="aContact"></p>
+    </div>
+
+    <p class="confirm-add">Add it to your own calendar</p>
     <div class="confirm-actions">
-      <button class="cta-light" id="cIcs">Add to your calendar</button>
+      <a class="cta-light" id="cGoogle" target="_blank" rel="noopener">Google Calendar</a>
+      <a class="cta-light" id="cOutlook" target="_blank" rel="noopener">Outlook</a>
+      <button class="cta-light" id="cIcs">Apple Calendar &middot; .ics</button>
+    </div>
+    <div class="confirm-actions" style="margin-top:14px">
       <button class="cta-ghost" id="cAgain">Pick a different time</button>
     </div>
   </div>
@@ -357,7 +404,20 @@ var CONFIG = {
     employer:   "Employed by A Good Place Therapy",
     phone:      "971-514-2190",
     address:    "667 Lytton Ave, Suite 9, Palo Alto, CA 94301",
-    addressShort: "667 Lytton Ave, Palo Alto"
+    addressShort: "667 Lytton Ave, Palo Alto",
+
+    // Shown on the confirmation screen for in-person bookings only.
+    // photo: drop a JPG in the repo (e.g. "office.jpg") and name it here.
+    // A picture of the red brick frontage helps more than a map tile does.
+    photo: "",
+    photoAlt: "The red brick building at 667 Lytton Ave",
+    arrival: [
+      "The building is red brick. There's no parking on the premises.",
+      "Park on Bryant Avenue, at the Bryant and Lytton intersection.",
+      "Bikes can be locked to the fence, or around back for more security.",
+      "Front and back doors are both open. Come in and take a seat in the ground floor waiting room — there's no reception staff.",
+      "I'll come and get you at the time of your appointment."
+    ]
   }
 };
 
@@ -680,6 +740,45 @@ function renderConfirm(){
   $("cKind").textContent  = B.kind === "reschedule" ? "Rescheduled session" : "New session";
   $("cEmail").textContent = B.email;
 
+  // Directions, parking and the "no reception staff" detail only matter if
+  // they're actually coming to the office.
+  var P = CONFIG.practice;
+  var arr = $("arrive");
+  if (B.mode === "inperson"){
+    arr.hidden = false;
+    $("aAddr").textContent = P.address;
+    $("aGmap").href = "https://www.google.com/maps/search/?api=1&query=" +
+      encodeURIComponent(P.address);
+    // maps:// is the iOS scheme; on other platforms this falls through to the web map.
+    $("aAmap").href = "https://maps.apple.com/?q=" + encodeURIComponent(P.address);
+
+    var ph = $("aPhoto");
+    if (P.photo){ ph.src = P.photo; ph.alt = P.photoAlt || ""; ph.hidden = false; }
+    else ph.hidden = true;
+
+    var list = $("aList");
+    list.innerHTML = "";
+    (P.arrival || []).forEach(function(line){
+      var li = document.createElement("li");
+      li.textContent = line;
+      list.appendChild(li);
+    });
+
+    var c = $("aContact");
+    c.textContent = "Questions before you come? Email or text ";
+    var tel = document.createElement("a");
+    tel.href = "tel:" + P.phone.replace(/[^0-9+]/g, "");
+    tel.textContent = P.phone;
+    c.appendChild(tel);
+    c.appendChild(document.createTextNode("."));
+  } else {
+    arr.hidden = true;
+  }
+
+  var u = calUrls();
+  $("cGoogle").href = u.google;
+  $("cOutlook").href = u.outlook;
+
   $("cNext").textContent = B.invited
     ? "That time is now held on my calendar, and a calendar invitation is on its way to you. I'll follow up by email to confirm — if it turns out not to work, just reply and we'll move it."
     : "That time is now held on my calendar. I'll email you shortly to confirm the details.";
@@ -835,6 +934,32 @@ document.querySelectorAll("#bKind .chip").forEach(function(c){
   };
 });
 $("bSubmit").onclick = submitBooking;
+
+/* Deep links for the two web calendars people actually use. Apple, desktop
+   Outlook, Thunderbird and everything else take the .ics. On iOS, opening an
+   .ics hands it straight to the Calendar app. */
+function calUrls(){
+  var B = state.booked;
+  var z = function(t){ return new Date(t).toISOString().replace(/[-:]/g,"").split(".")[0] + "Z"; };
+  var iso = function(t){ return new Date(t).toISOString().replace(/\.\d{3}Z$/, "Z"); };
+  var title = "Session with Shawn Walters, AMFT";
+  var where = B.location ||
+    (B.mode === "virtual" ? "Video link to follow" : CONFIG.practice.address);
+  var detail = "Requested via the booking page. Shawn will confirm by email.";
+
+  return {
+    google: "https://calendar.google.com/calendar/render?" + new URLSearchParams({
+      action: "TEMPLATE", text: title,
+      dates: z(B.start) + "/" + z(B.end),
+      details: detail, location: where
+    }).toString(),
+    outlook: "https://outlook.live.com/calendar/0/deeplink/compose?" + new URLSearchParams({
+      path: "/calendar/action/compose", rru: "addevent",
+      subject: title, startdt: iso(B.start), enddt: iso(B.end),
+      body: detail, location: where
+    }).toString()
+  };
+}
 
 $("cIcs").onclick = function(){
   var url = URL.createObjectURL(icsBlob());
