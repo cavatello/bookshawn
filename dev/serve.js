@@ -26,7 +26,7 @@ const server = http.createServer((req, res) => {
     return req.on('end', () => {
       LASTBOOK = JSON.parse(b);
       res.writeHead(200, { ...cors, 'content-type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, htmlLink: 'https://calendar.google.com/x' }));
+      res.end(JSON.stringify({ ok: true, htmlLink: 'https://calendar.google.com/x', invited: true }));
     });
   }
   if (u.pathname === '/api/fail') {
@@ -46,8 +46,10 @@ const server = http.createServer((req, res) => {
   if (fs.existsSync(p) && fs.statSync(p).isDirectory()) p = path.join(p, 'index.html');
   if (!fs.existsSync(p)) { res.writeHead(404); return res.end('nf'); }
   const ext = path.extname(p);
-  const ct = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' }[ext] || 'text/plain';
+  const ct = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
+               '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' }[ext] || 'text/plain';
   res.writeHead(200, { 'content-type': ct });
   res.end(fs.readFileSync(p));
 });
-server.listen(8099, () => console.log('up on 8099'));
+const PORT = Number(process.env.PORT || 8099);
+server.listen(PORT, () => console.log('up on ' + PORT));
