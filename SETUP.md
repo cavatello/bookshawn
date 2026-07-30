@@ -645,7 +645,7 @@ photo:    "",                       // optional, see below
 photoAlt: "The red brick building at 667 Lytton Ave",
 arrival: [
   "The building is red brick. There's no parking on the premises.",
-  "Park on Bryant Avenue, at the Bryant and Lytton intersection.",
+  "There's no parking on the premises. Street parking is on Byron St, near the Byron and Lytton corner.",
   ...
 ]
 ```
@@ -660,9 +660,13 @@ Take a picture of the frontage, save it as `office.jpg` in the repo root, and se
 photo: "office.jpg",
 ```
 
-A photo of the red brick building is genuinely more useful than a map tile —
-"red brick, no reception staff" is what someone actually needs when they're
-standing on Lytton looking at three doors. Keep it under ~300KB.
+A photo of the frontage beats a map tile — what someone needs standing on Lytton
+is "red-shingled house, covered porch, 667 above it", not a pin. Keep it under
+~300KB.
+
+**Take your own photo.** A Google Street View screenshot is Google's imagery, not
+yours, and republishing one on your site isn't covered by fair use or the Maps
+terms. Thirty seconds with a phone from the pavement solves it and looks better.
 
 ### Why there's no embedded map
 

@@ -33,9 +33,18 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   ok('header is the scheduling wordmark, not the practice name',
     /Real-time scheduling availability/i.test(await page.textContent('.masthead')) &&
     !/A Good Place Therapy/.test(await page.textContent('.masthead')));
-  ok('pixel therapist in the hero, not the header',
-    (await page.locator('.hero-art svg rect').count()) > 100 &&
+  ok('pixel scene in the hero, not the header',
+    (await page.locator('.hero-art svg rect').count()) > 500 &&
     (await page.locator('.masthead svg').count()) === 0);
+  ok('artwork has an accessible name',
+    ((await page.getAttribute('.hero-art svg', 'aria-label')) || '').length > 20);
+  ok('artwork sized by CSS, not hard-coded px',
+    (await page.getAttribute('.hero-art svg', 'width')) === null);
+  ok('artwork scales to its container', await page.evaluate(() => {
+      const box = document.querySelector('.hero-art').getBoundingClientRect();
+      const svg = document.querySelector('.hero-art svg').getBoundingClientRect();
+      return Math.abs(svg.width - box.width) < 2 && svg.height > 0;
+    }));
   ok('footer names the employer',
     /Employed by A Good Place Therapy/.test(await page.textContent('.sitefoot')));
   ok('no session-hours claim anywhere',
@@ -205,9 +214,11 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   ok('confirmation says new vs reschedule', /New session|Rescheduled/.test(await page.textContent('#cKind')));
   ok('confirmation explains what happens next', (await page.textContent('#cNext')).length > 40);
   ok('in-person shows the Getting here panel', await page.locator('#arrive').isVisible());
-  ok('arrival lists parking, brick and waiting room', await (async () => {
+  ok('arrival names the right cross street and landmarks', await (async () => {
       const t = await page.textContent('#aList');
-      return /Bryant/.test(t) && /red brick/.test(t) && /waiting room/.test(t);
+      // Byron St, not Bryant — the cross street at Lytton.
+      return /Byron St/.test(t) && !/Bryant/.test(t) &&
+             /667 is above the porch/.test(t) && /waiting room/.test(t);
     })(), await page.textContent('#aList'));
   {
     const gm = await page.getAttribute('#aGmap', 'href');
