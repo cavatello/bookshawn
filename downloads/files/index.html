@@ -31,11 +31,8 @@
   /* ===== Masthead ===== */
   .masthead{display:flex; align-items:baseline; justify-content:space-between; gap:24px;
     max-width:820px; margin:0 auto; padding:26px 32px 0;}
-  .masthead-mark{display:flex; align-items:center; gap:11px;
-    font-family:'Fraunces',serif; font-weight:600; font-size:15px;
+  .masthead-mark{font-family:'Fraunces',serif; font-weight:600; font-size:15px;
     letter-spacing:-.01em; color:var(--ink); text-decoration:none;}
-  .avatar{width:34px; height:34px; flex-shrink:0; image-rendering:pixelated;
-    border-radius:4px; background:var(--sage-soft);}
   .mast-back{font-size:12.5px; color:var(--muted); text-decoration:none;}
   .mast-back:hover{color:var(--ink); text-decoration:underline;}
   a:focus-visible,button:focus-visible{outline:2px solid var(--sage); outline-offset:2px;}
@@ -179,12 +176,13 @@
 <body>
 
 <header class="masthead">
-  <span class="masthead-mark"><svg class="avatar" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" role="img" aria-label="Pixel-art portrait of Shawn"><rect x="7" y="0" width="6" height="1" fill="#2B2A26"/><rect x="5" y="1" width="2" height="1" fill="#2B2A26"/><rect x="7" y="1" width="6" height="1" fill="#E3BE99"/><rect x="13" y="1" width="1" height="1" fill="#2B2A26"/><rect x="4" y="2" width="1" height="1" fill="#2B2A26"/><rect x="5" y="2" width="9" height="1" fill="#E3BE99"/><rect x="14" y="2" width="2" height="1" fill="#2B2A26"/><rect x="3" y="3" width="1" height="1" fill="#2B2A26"/><rect x="4" y="3" width="11" height="1" fill="#E3BE99"/><rect x="15" y="3" width="1" height="1" fill="#2B2A26"/><rect x="3" y="4" width="1" height="1" fill="#2B2A26"/><rect x="4" y="4" width="11" height="1" fill="#E3BE99"/><rect x="15" y="4" width="1" height="1" fill="#2B2A26"/><rect x="3" y="5" width="1" height="1" fill="#2B2A26"/><rect x="4" y="5" width="12" height="1" fill="#E3BE99"/><rect x="16" y="5" width="1" height="1" fill="#2B2A26"/><rect x="3" y="6" width="4" height="1" fill="#8E9188"/><rect x="7" y="6" width="1" height="1" fill="#2B2A26"/><rect x="8" y="6" width="5" height="1" fill="#E3BE99"/><rect x="13" y="6" width="1" height="1" fill="#2B2A26"/><rect x="14" y="6" width="4" height="1" fill="#8E9188"/><rect x="3" y="7" width="1" height="1" fill="#8E9188"/><rect x="4" y="7" width="2" height="1" fill="#CFE0E6"/><rect x="6" y="7" width="1" height="1" fill="#8E9188"/><rect x="7" y="7" width="1" height="1" fill="#2B2A26"/><rect x="8" y="7" width="5" height="1" fill="#E3BE99"/><rect x="13" y="7" width="1" height="1" fill="#2B2A26"/><rect x="14" y="7" width="1" height="1" fill="#8E9188"/><rect x="15" y="7" width="2" height="1" fill="#CFE0E6"/><rect x="17" y="7" width="1" height="1" fill="#8E9188"/><rect x="3" y="8" width="4" height="1" fill="#8E9188"/><rect x="7" y="8" width="1" height="1" fill="#2B2A26"/><rect x="8" y="8" width="5" height="1" fill="#E3BE99"/><rect x="13" y="8" width="1" height="1" fill="#2B2A26"/><rect x="14" y="8" width="4" height="1" fill="#8E9188"/><rect x="3" y="9" width="1" height="1" fill="#2B2A26"/><rect x="4" y="9" width="11" height="1" fill="#E3BE99"/><rect x="15" y="9" width="1" height="1" fill="#2B2A26"/><rect x="3" y="10" width="1" height="1" fill="#2B2A26"/><rect x="4" y="10" width="4" height="1" fill="#E3BE99"/><rect x="8" y="10" width="4" height="1" fill="#2B2A26"/><rect x="12" y="10" width="3" height="1" fill="#E3BE99"/><rect x="15" y="10" width="1" height="1" fill="#2B2A26"/><rect x="4" y="11" width="1" height="1" fill="#2B2A26"/><rect x="5" y="11" width="9" height="1" fill="#C6C6C0"/><rect x="14" y="11" width="1" height="1" fill="#2B2A26"/><rect x="5" y="12" width="1" height="1" fill="#2B2A26"/><rect x="6" y="12" width="7" height="1" fill="#C6C6C0"/><rect x="13" y="12" width="1" height="1" fill="#2B2A26"/><rect x="6" y="13" width="2" height="1" fill="#2B2A26"/><rect x="8" y="13" width="3" height="1" fill="#C6C6C0"/><rect x="11" y="13" width="2" height="1" fill="#2B2A26"/><rect x="8" y="14" width="1" height="1" fill="#2B2A26"/><rect x="9" y="14" width="1" height="1" fill="#F3F0E5"/><rect x="10" y="14" width="1" height="1" fill="#2B2A26"/><rect x="5" y="15" width="4" height="1" fill="#2E5183"/><rect x="9" y="15" width="2" height="1" fill="#F3F0E5"/><rect x="11" y="15" width="4" height="1" fill="#2E5183"/><rect x="4" y="16" width="5" height="1" fill="#2E5183"/><rect x="9" y="16" width="2" height="1" fill="#F3F0E5"/><rect x="11" y="16" width="5" height="1" fill="#2E5183"/><rect x="4" y="17" width="4" height="1" fill="#2E5183"/><rect x="8" y="17" width="1" height="1" fill="#1F3A61"/><rect x="9" y="17" width="2" height="1" fill="#F3F0E5"/><rect x="11" y="17" width="1" height="1" fill="#1F3A61"/><rect x="12" y="17" width="4" height="1" fill="#2E5183"/><rect x="4" y="18" width="4" height="1" fill="#2E5183"/><rect x="8" y="18" width="1" height="1" fill="#1F3A61"/><rect x="9" y="18" width="2" height="1" fill="#F3F0E5"/><rect x="11" y="18" width="1" height="1" fill="#1F3A61"/><rect x="12" y="18" width="4" height="1" fill="#2E5183"/><rect x="4" y="19" width="12" height="1" fill="#2E5183"/></svg><span>Real-time scheduling availability</span></span>
+  <a class="masthead-mark" id="markLink">A Good Place Therapy</a>
   <a class="mast-back" id="backLink" hidden>Back to site</a>
 </header>
 
 <div class="wrap">
   <div class="hero">
+    <div class="hero-eyebrow">Real-time calendar availability</div>
     <h1>Find a time with <em>Shawn</em>.</h1>
     <p class="hero-dek">Choose how you'd like to meet, then pick an open time. Everything below is checked against my live calendar, so what you see is genuinely free.</p>
   </div>
@@ -259,7 +257,6 @@
         <p class="foot-name" id="fClinician"></p>
         <p class="foot-line" id="fTitle"></p>
         <p class="foot-line" id="fSuper"></p>
-        <p class="foot-line" id="fEmployer"></p>
       </div>
       <div>
         <p class="foot-line"><a id="fPhone" class="foot-a"></a></p>
@@ -302,7 +299,6 @@ var CONFIG = {
     pronouns:   "He/Him",
     title:      "Registered Associate Marriage and Family Therapist — California",
     supervisor: "Supervised by Christina Miller-Martinez, LMFT #105663",
-    employer:   "Employed by A Good Place Therapy",
     phone:      "971-514-2190",
     address:    "667 Lytton Ave, Suite 9, Palo Alto, CA 94301",
     addressShort: "667 Lytton Ave, Palo Alto"
@@ -669,12 +665,8 @@ function submitBooking(){
   .then(function(o){
     if (!o.ok || o.j.error) throw new Error(o.j.error || "Request failed");
     res.className = "result ok";
-    res.textContent = o.j.invited
-      ? "Got it. I've held " + fmtDayLong(s.start, viewerTz) + " at " +
-        fmtTime(s.start, viewerTz) + " and emailed a calendar invite to " + email +
-        ". I'll follow up personally to confirm."
-      : "Got it. I've held " + fmtDayLong(s.start, viewerTz) + " at " +
-        fmtTime(s.start, viewerTz) + ". I'll email you at " + email + " to confirm.";
+    res.textContent = "Got it. I've put a hold on " + fmtDayLong(s.start, viewerTz) +
+      " at " + fmtTime(s.start, viewerTz) + " and sent a confirmation to " + email + ".";
     state.selectedSlot = null;
     loadBusy();
   })
@@ -716,11 +708,11 @@ $("bSubmit").onclick = submitBooking;
 
 (function(){
   var P = CONFIG.practice;
+  $("markLink").textContent  = P.name;
   $("modeAddr").textContent  = P.addressShort;
   $("fClinician").textContent = P.clinician + (P.pronouns ? " (" + P.pronouns + ")" : "");
   $("fTitle").textContent     = P.title;
   $("fSuper").textContent     = P.supervisor;
-  $("fEmployer").textContent  = P.employer;
   $("fAddress").textContent   = P.address;
   var ph = $("fPhone");
   ph.textContent = P.phone;
@@ -728,6 +720,7 @@ $("bSubmit").onclick = submitBooking;
 })();
 
 if (CONFIG.siteUrl){
+  $("markLink").href = CONFIG.siteUrl;
   $("backLink").href = CONFIG.siteUrl;
   $("backLink").hidden = false;
 }

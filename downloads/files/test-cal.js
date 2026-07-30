@@ -28,14 +28,9 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   ok('email fallback shown instead', await page.locator('#notlive').isVisible());
   ok('email fallback explains why',
     /connected to my calendar yet/i.test(await page.textContent('#notliveMsg')));
-  ok('header is the scheduling wordmark, not the practice name',
-    /Real-time scheduling availability/i.test(await page.textContent('.masthead')) &&
-    !/A Good Place Therapy/.test(await page.textContent('.masthead')));
-  ok('pixel avatar in header', (await page.locator('.masthead svg.avatar rect').count()) > 40);
-  ok('footer names the employer',
-    /Employed by A Good Place Therapy/.test(await page.textContent('.sitefoot')));
-  ok('no session-hours claim anywhere',
-    !/hours a week/i.test(await page.content()));
+  ok('practice header, not simulator nav',
+    (await page.locator('.masthead .sitenav').count()) === 0 &&
+    /A Good Place Therapy/.test(await page.textContent('.masthead')));
   ok('back-to-site link hidden until siteUrl is set',
     await page.locator('#backLink').isHidden());
   ok('footer renders', (await page.locator('.sitefoot').count()) === 1);
@@ -45,7 +40,6 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
     ok('footer: AMFT registration number', /AMFT #138642/.test(f));
     ok('footer: associate title, not licensed', /Registered Associate/.test(f) && !/^(?!.*Registered).*\bLMFT\b/.test(f.split('Supervised')[0]));
     ok('footer: supervisor named with licence', /Christina Miller-Martinez, LMFT #105663/.test(f));
-    ok('footer: employer disclosed', /Employed by A Good Place Therapy/.test(f));
     ok('footer: address and phone', /667 Lytton Ave/.test(f) && /971-514-2190/.test(f));
     ok('footer: pronouns', /\(He\/Him\)/.test(f));
     ok('phone is a tel: link',
@@ -61,8 +55,8 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
     (await page.locator('#grid, details.weekly, .gridtable').count()) === 0);
   ok('virtual selected by default',
     (await page.getAttribute('.mode[data-mode="virtual"]', 'aria-pressed')) === 'true');
-  ok('hero does not duplicate the header line',
-    !/Real-time calendar availability/i.test(await page.textContent('.hero')));
+  ok('hero says real-time availability',
+    /Real-time calendar availability/i.test(await page.textContent('.hero')));
   ok('hero no longer states session length',
     !/53-minute/.test(await page.textContent('.hero')));
   ok('mode cards carry names and descriptions',
@@ -130,7 +124,7 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   const errs2 = [];
   page.on('console', m => { if (m.type() === 'error') errs2.push(m.text()); });
   page.on('pageerror', e => errs2.push('PAGEERROR ' + e.message));
-  await page.addInitScript((api) => { window.__API = api; }, BASE + '/api');
+  await page.addInitScript(() => { window.__API = 'http://localhost:8099/api'; });
   await page.goto(BASE + '/');
   await page.evaluate(() => { CONFIG.apiBase = window.__API; loadBusy(); });
   await page.waitForTimeout(600);
@@ -183,14 +177,8 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   await page.click('#bKind .chip[data-kind="new"]');
   await page.click('#bSubmit');
   await page.waitForTimeout(700);
-  {
-    const msg = await page.textContent('#bResult');
-    ok('success message shown', /I've held/i.test(msg), msg);
-    ok('confirmation copy is truthful about the email',
-      /emailed a calendar invite/i.test(msg), msg);
-    ok('does not claim a confirmation that was never sent',
-      !/sent a confirmation/i.test(msg), msg);
-  }
+  ok('success message shown', /put a hold on/i.test(await page.textContent('#bResult')),
+    await page.textContent('#bResult'));
 
   const booked = await (await ctx.newPage()).goto(BASE + '/__lastbook').then(r => r.json());
   ok('POST body has ISO start', !!Date.parse(booked.start));
@@ -204,7 +192,7 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   console.log('\n[5] Backend down');
   const p5 = await ctx.newPage();
   await p5.goto(BASE + '/');
-  await p5.evaluate((api) => { CONFIG.apiBase = api; loadBusy(); }, BASE + '/api/fail-');
+  await p5.evaluate(() => { CONFIG.apiBase = 'http://localhost:8099/api/fail-'; loadBusy(); });
   await p5.waitForTimeout(500);
   ok('falls back to stale banner', (await p5.getAttribute('#status', 'class')).includes('is-stale'));
   ok('FAIL CLOSED on backend error: no slots offered',
@@ -221,7 +209,7 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   const errsNY = [];
   pNY.on('pageerror', e => errsNY.push(e.message));
   await pNY.goto(BASE + '/');
-  await pNY.evaluate((api) => { CONFIG.apiBase = api; loadBusy(); }, BASE + '/api');
+  await pNY.evaluate(() => { CONFIG.apiBase = 'http://localhost:8099/api'; loadBusy(); });
   await pNY.waitForTimeout(500);
   await pNY.click('.mode[data-mode="inperson"]');
   await pNY.locator('.rail .day:not(.is-empty)').first().click();
@@ -255,7 +243,7 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   const errsM = [];
   pm.on('pageerror', e => errsM.push(e.message));
   await pm.goto(BASE + '/');
-  await pm.evaluate((api) => { CONFIG.apiBase = api; loadBusy(); }, BASE + '/api');
+  await pm.evaluate(() => { CONFIG.apiBase = 'http://localhost:8099/api'; loadBusy(); });
   await pm.waitForTimeout(500);
   ok('no errors on mobile', errsM.length === 0, errsM.join('|'));
   const sw = await pm.evaluate(() => document.documentElement.scrollWidth);

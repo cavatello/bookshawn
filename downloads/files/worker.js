@@ -286,15 +286,10 @@ async function handleBook(body, env) {
     reminders: { useDefault: true },
   };
 
-  // Without an attendee Google emails nobody, and the page would be claiming a
-  // confirmation that never went out. SEND_INVITES="false" turns this off, and
-  // the page then says only that a hold was placed.
-  const invite = String(env.SEND_INVITES ?? "true") !== "false";
-  if (invite) event.attendees = [{ email: String(email).trim(), responseStatus: "needsAction" }];
-
+  // sendUpdates=none: you confirm by hand. Flip to "all" plus an attendees[]
+  // entry only if you want Google to email the client automatically.
   const r = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(env.CALENDAR_ID)}/events` +
-    `?sendUpdates=${invite ? "all" : "none"}`,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(env.CALENDAR_ID)}/events?sendUpdates=none`,
     {
       method: "POST",
       headers: { authorization: "Bearer " + token, "content-type": "application/json" },
@@ -304,5 +299,5 @@ async function handleBook(body, env) {
   const j = await r.json();
   if (!r.ok) throw fail("Could not write the hold: " + (j.error?.message || r.status), 502);
 
-  return { ok: true, htmlLink: j.htmlLink, id: j.id, invited: invite };
+  return { ok: true, htmlLink: j.htmlLink, id: j.id };
 }

@@ -1,0 +1,16 @@
+name = "agp-cal"
+main = "worker.js"
+compatibility_date = "2026-07-01"
+
+[vars]
+# Comma-separated if sessions live on more than one calendar.
+CALENDAR_ID    = "shawn@agoodplacetherapy.com"
+# Comma-separated. localhost is included so `node dev/serve.js` can reach the
+# Worker during development. Remove it if you'd rather only the live site can.
+ALLOWED_ORIGIN = "https://cavatello.github.io,http://localhost:8099"
+PRACTICE_TZ    = "America/Los_Angeles"
+
+# Secrets are NOT set here. Run these once after `wrangler login`:
+#   npx wrangler secret put GOOGLE_CLIENT_ID
+#   npx wrangler secret put GOOGLE_CLIENT_SECRET
+#   npx wrangler secret put GOOGLE_REFRESH_TOKEN
