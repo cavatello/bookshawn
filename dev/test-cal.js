@@ -187,14 +187,25 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   await page.click('#bKind .chip[data-kind="new"]');
   await page.click('#bSubmit');
   await page.waitForTimeout(700);
+  await page.waitForTimeout(600);
+  ok('confirmation panel replaces the form', await page.locator('#confirm').isVisible());
+  ok('picker hidden once booked', await page.locator('#slotwrap').isHidden());
+  ok('confirmation states the time', /\d/.test(await page.textContent('#cWhen')));
+  ok('confirmation names the email', /test@example\.com/.test(await page.textContent('#cEmail')));
+  ok('confirmation names session type', /In person|Virtual/.test(await page.textContent('#cMode')));
+  ok('confirmation says new vs reschedule', /New session|Rescheduled/.test(await page.textContent('#cKind')));
+  ok('confirmation explains what happens next', (await page.textContent('#cNext')).length > 40);
+  ok('add-to-calendar button present', await page.locator('#cIcs').isVisible());
   {
-    const msg = await page.textContent('#bResult');
-    ok('success message shown', /I've held/i.test(msg), msg);
-    ok('confirmation copy is truthful about the email',
-      /emailed a calendar invite/i.test(msg), msg);
-    ok('does not claim a confirmation that was never sent',
-      !/sent a confirmation/i.test(msg), msg);
+    const ics = await page.evaluate(() => icsBlob().text());
+    ok('ics is valid and carries the session',
+      /BEGIN:VCALENDAR/.test(ics) && /DTSTART:\d{8}T\d{6}Z/.test(ics) &&
+      /SUMMARY:Session with Shawn Walters/.test(ics), ics.slice(0, 60));
   }
+  await page.click('#cAgain');
+  await page.waitForTimeout(400);
+  ok('pick-another restores the picker',
+    (await page.locator('#confirm').isHidden()) && (await page.locator('#rail').isVisible()));
 
   const booked = await (await ctx.newPage()).goto(BASE + '/__lastbook').then(r => r.json());
   ok('POST body has ISO start', !!Date.parse(booked.start));

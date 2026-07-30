@@ -111,6 +111,33 @@
   .day-none{font-size:9.5px; color:var(--muted-2);}
 
   /* ===== Slots ===== */
+  /* ===== Booking confirmation ===== */
+  .confirm{margin:22px 0 0; padding:34px 30px 30px; border-radius:14px;
+    background:var(--forest); color:#E9EBE1;}
+  .confirm-badge{width:46px; height:46px; border-radius:50%; background:var(--sage);
+    display:flex; align-items:center; justify-content:center; margin:0 0 18px;}
+  .confirm-badge svg{width:24px; height:24px; color:#1C2B1A;}
+  .confirm-h{font-family:'Fraunces',serif; font-size:26px; font-weight:600;
+    letter-spacing:-.02em; margin:0 0 6px; color:#F2F3ED;}
+  .confirm-when{font-family:'Fraunces',serif; font-size:19px; font-weight:600;
+    margin:0 0 3px; color:#C4D2BD;}
+  .confirm-tz{font-size:13px; margin:0 0 22px; color:#9DAB98;}
+  .crows{border-top:1px solid #47603F; margin:0 0 20px;}
+  .crow{display:flex; justify-content:space-between; gap:18px; padding:11px 0;
+    border-bottom:1px solid #47603F; font-size:13.5px;}
+  .crow span{color:#9DAB98;}
+  .crow b{color:#E9EBE1; font-weight:500; text-align:right;}
+  .confirm-next{font-size:13.5px; line-height:1.65; color:#C4D2BD; margin:0 0 22px;}
+  .confirm-actions{display:flex; gap:10px; flex-wrap:wrap;}
+  .cta-light{display:inline-flex; align-items:center; gap:8px; padding:11px 20px;
+    border-radius:9px; border:none; background:#F2F3ED; color:#1C1E1A;
+    font-size:13.5px; font-weight:600; cursor:pointer;}
+  .cta-light:hover{background:#fff;}
+  .cta-ghost{display:inline-flex; align-items:center; padding:11px 20px;
+    border-radius:9px; border:1px solid #6B8264; background:transparent;
+    color:#C4D2BD; font-size:13.5px; font-weight:500; cursor:pointer;}
+  .cta-ghost:hover{border-color:#9DAB98; color:#F2F3ED;}
+
   .notlive{margin:22px 0 0; padding:24px 22px; border:1px solid var(--forest-line);
     border-radius:12px; background:var(--forest-soft);}
   .notlive-h{font-family:'Fraunces',serif; font-size:17px; font-weight:600; margin:0 0 6px; color:#2A3A28;}
@@ -246,6 +273,26 @@
       <button class="cta" id="bSubmit">Request this time</button>
       <p class="privacy">This sends a request, not a confirmation — I'll reply by email to confirm. Please don't include clinical details here; this form isn't a secure channel for health information.</p>
       <div class="result" id="bResult" hidden></div>
+    </div>
+  </div>
+
+  <div class="confirm" id="confirm" hidden aria-live="polite">
+    <div class="confirm-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5.5 5.5L20 7"/></svg>
+    </div>
+    <p class="confirm-h">You're on my calendar</p>
+    <p class="confirm-when" id="cWhen"></p>
+    <p class="confirm-tz" id="cTz"></p>
+    <div class="crows">
+      <div class="crow"><span>Session type</span><b id="cMode"></b></div>
+      <div class="crow"><span>Where</span><b id="cWhere"></b></div>
+      <div class="crow"><span>This is a</span><b id="cKind"></b></div>
+      <div class="crow"><span>Confirmation sent to</span><b id="cEmail"></b></div>
+    </div>
+    <p class="confirm-next" id="cNext"></p>
+    <div class="confirm-actions">
+      <button class="cta-light" id="cIcs">Add to your calendar</button>
+      <button class="cta-ghost" id="cAgain">Pick a different time</button>
     </div>
   </div>
 
@@ -600,6 +647,54 @@ function renderBook(){
   $("bookTz").textContent = tzLine;
 }
 
+function renderConfirm(){
+  var B = state.booked;
+  if (!B) { $("confirm").hidden = true; return; }
+  $("confirm").hidden = false;
+
+  $("cWhen").textContent = fmtDayLong(B.start, viewerTz) + ", " +
+    fmtTime(B.start, viewerTz) + " – " + fmtTime(B.end, viewerTz);
+
+  var tz = tzShort(viewerTz, B.start) + " (" + viewerTz + ")";
+  if (viewerTz !== CONFIG.practiceTz) {
+    tz += " · " + fmtTime(B.start, CONFIG.practiceTz) + " " +
+          tzShort(CONFIG.practiceTz, B.start) + " for Shawn";
+  }
+  $("cTz").textContent = tz;
+
+  $("cMode").textContent  = MODE_LABEL[B.mode];
+  $("cWhere").textContent = B.mode === "virtual"
+    ? "Secure video link, sent before we meet"
+    : CONFIG.practice.address;
+  $("cKind").textContent  = B.kind === "reschedule" ? "Rescheduled session" : "New session";
+  $("cEmail").textContent = B.email;
+
+  $("cNext").textContent = B.invited
+    ? "That time is now held on my calendar, and a calendar invitation is on its way to you. I'll follow up by email to confirm — if it turns out not to work, just reply and we'll move it."
+    : "That time is now held on my calendar. I'll email you shortly to confirm the details.";
+}
+
+/* An .ics for the visitor's own calendar. Built in the browser, so nothing
+   extra is sent anywhere. */
+function icsBlob(){
+  var B = state.booked;
+  var z = function(t){ return new Date(t).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z"; };
+  var where = B.mode === "virtual" ? "Secure video link to follow" : CONFIG.practice.address;
+  var body = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//A Good Place Therapy//Booking//EN",
+    "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "BEGIN:VEVENT",
+    "UID:" + B.start + "-agp@agoodplacetherapy.com",
+    "DTSTAMP:" + z(Date.now()),
+    "DTSTART:" + z(B.start),
+    "DTEND:" + z(B.end),
+    "SUMMARY:Session with Shawn Walters, AMFT",
+    "LOCATION:" + where,
+    "DESCRIPTION:Requested via the booking page. Shawn will confirm by email.",
+    "END:VEVENT", "END:VCALENDAR"
+  ].join("\r\n");
+  return new Blob([body], { type: "text/calendar;charset=utf-8" });
+}
+
 function render(){
   renderStatus();
   var blocked = bookingBlocked();
@@ -607,6 +702,15 @@ function render(){
   // Hide the whole picker rather than show unverified times. Slots drawn from
   // the template alone look identical to live ones, and a caveat above them
   // does not stop someone booking an hour that is already taken.
+  // A completed booking takes over the panel until they ask for another time.
+  if (state.booked){
+    $("railhead").hidden = true; $("rail").hidden = true;
+    $("slotwrap").hidden = true; $("modes").hidden = true;
+    $("modeNote").hidden = true; $("notlive").hidden = true;
+    renderConfirm();
+    return;
+  }
+  $("confirm").hidden = true;
   $("railhead").hidden = blocked;
   $("rail").hidden = blocked;
   $("slotwrap").hidden = blocked;
@@ -673,14 +777,14 @@ function submitBooking(){
   .then(function(r){ return r.json().then(function(j){ return { ok:r.ok, j:j }; }); })
   .then(function(o){
     if (!o.ok || o.j.error) throw new Error(o.j.error || "Request failed");
-    res.className = "result ok";
-    res.textContent = o.j.invited
-      ? "Got it. I've held " + fmtDayLong(s.start, viewerTz) + " at " +
-        fmtTime(s.start, viewerTz) + " and emailed a calendar invite to " + email +
-        ". I'll follow up personally to confirm."
-      : "Got it. I've held " + fmtDayLong(s.start, viewerTz) + " at " +
-        fmtTime(s.start, viewerTz) + ". I'll email you at " + email + " to confirm.";
+    res.hidden = true;
+    state.booked = {
+      start: s.start, end: s.end, mode: state.mode, kind: state.kind,
+      email: email, name: name, invited: o.j.invited !== false
+    };
     state.selectedSlot = null;
+    render();
+    $("confirm").scrollIntoView({ behavior: "smooth", block: "center" });
     loadBusy();
   })
   .catch(function(e){
@@ -718,6 +822,23 @@ document.querySelectorAll("#bKind .chip").forEach(function(c){
   };
 });
 $("bSubmit").onclick = submitBooking;
+
+$("cIcs").onclick = function(){
+  var url = URL.createObjectURL(icsBlob());
+  var a = document.createElement("a");
+  a.href = url; a.download = "session-with-shawn.ics";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+};
+
+$("cAgain").onclick = function(){
+  state.booked = null;
+  state.selectedSlot = null;
+  $("bName").value = ""; $("bEmail").value = ""; $("bNote").value = "";
+  $("bResult").hidden = true;
+  render();
+  $("railhead").scrollIntoView({ behavior: "smooth", block: "center" });
+};
 
 (function(){
   var P = CONFIG.practice;
