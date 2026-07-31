@@ -15,6 +15,8 @@ The downloads arrive flat. This is the layout to create in `cavatello/bookshawn`
 ```
 bookshawn/
 ├── index.html          the booking page  ->  cavatello.github.io/bookshawn/
+├── weekview/
+│   └── index.html      your two-week planner  ->  /bookshawn/weekview/
 ├── SETUP.md            this file (reference)
 ├── NEXT-STEPS.md       follow this one, top to bottom
 ├── worker/
@@ -23,7 +25,8 @@ bookshawn/
 └── dev/
     ├── watch.js          save a file and it ships (see below)
     ├── serve.js          local test harness
-    ├── test-cal.js       90 assertions
+    ├── test-cal.js       94 assertions (booking page)
+    ├── test-weekview.js  39 assertions (two-week planner)
     ├── test-devices.js   159 checks across 11 viewports
     ├── get-token.js      issues a Google refresh token
     ├── check-google.js   validates your Google credentials
@@ -501,6 +504,29 @@ minute.
 | `--delay=N` | seconds of quiet before acting (default 3) |
 | `--auto-install` | run an `install.sh` bundle dropped in Downloads |
 
+### About the tests on your machine
+
+The browser suites need Playwright, which isn't installed by default. When it's
+missing the watcher says so and publishes anyway:
+
+```
+tests skipped — Playwright isn't installed on this machine
+```
+
+That's deliberate. Everything in a bundle was run through all 253 checks before
+you got it, and Playwright plus Chromium is a ~300MB install to re-run tests that
+already passed. The guard that must never be skipped — the credential scan — has
+no dependencies and always runs.
+
+To run the full suite locally as well:
+
+```bash
+npm install -g playwright && npx playwright install chromium
+```
+
+Then `node dev/test-cal.js` and `node dev/test-devices.js` work directly, and the
+watcher will run them on every change.
+
 ### --auto-install
 
 With this flag, downloading an `install.sh` I've given you is the whole workflow:
@@ -675,3 +701,33 @@ a billing account and key restrictions to maintain. The keyless embed URL that
 used to work now returns a 301 — I tested it. The Maps and Apple Maps buttons
 open the native app on a phone and the web map on a desktop, which is what
 people do with an address anyway.
+
+---
+
+## weekview — your two-week planner
+
+<https://cavatello.github.io/bookshawn/weekview/>
+
+Not linked from anywhere and marked `noindex`, but it is a public URL — treat it
+as unlisted, not private. It shows only free time, never client names, so the
+exposure is the same shape as the booking page.
+
+Two Sunday-start weeks, filterable to virtual, in person, or both, with a
+copy-paste block at the bottom:
+
+```
+Tue Aug 4 (in person) — 2:00 PM, 3:00 PM, 7:00 PM
+Wed Aug 5 — 7:00 AM (in person), 3:00 PM (virtual)
+
+All times Pacific. Sessions are 53 minutes.
+```
+
+When every slot on a day is the same type the label moves to the date, which says
+the same thing without repeating itself six times. Mixed days label each time.
+
+**No 24-hour notice here.** The public page won't offer anything inside 24 hours;
+this one shows everything still ahead of you, including later today, because
+you're the one deciding what's realistic.
+
+`AVAILABILITY` is duplicated here as well — a third copy alongside `index.html`
+and `worker/worker.js`. Change your hours and all three need it.

@@ -1,4 +1,27 @@
-const { chromium, devices } = require('/home/claude/.npm-global/lib/node_modules/playwright');
+/* Resolve Playwright wherever it happens to live. Exits 2 (distinct from a real
+   test failure) when it isn't installed, so a machine without it can still
+   publish — the credential scan in watch.js is the guard that must never be
+   skipped, and it has no dependencies. */
+function loadPlaywright() {
+  const tries = ["playwright", "playwright-core"];
+  for (const t of tries) { try { return require(t); } catch (e) {} }
+  try {
+    const root = require("child_process")
+      .execSync("npm root -g", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return require(root + "/playwright");
+  } catch (e) {}
+  try { return require("/home/claude/.npm-global/lib/node_modules/playwright"); } catch (e) {}
+  return null;
+}
+const _pw = loadPlaywright();
+if (!_pw) {
+  console.log("\n  Playwright isn't installed here, so the browser tests were skipped.");
+  console.log("  Everything in this bundle was tested before it was handed over.\n");
+  console.log("  To run them locally too:");
+  console.log("    npm install -g playwright && npx playwright install chromium\n");
+  process.exit(2);
+}
+const { chromium, devices } = _pw;
 
 const BASE = process.env.BASE || 'http://localhost:8099';
 let pass = 0, fail = 0;

@@ -48,6 +48,14 @@ const server = http.createServer((req, res) => {
   // /blank/ serves index.html with apiBase emptied, so the suite can exercise
   // the never-configured path without the page firing a real cross-origin
   // request at the deployed Worker (which logs a CORS error and muddies test 1).
+  // weekview points at the live Worker; blank it for tests the same way.
+  if (u.pathname === '/weekview/blank' || u.pathname === '/weekview/blank/') {
+    let h = fs.readFileSync(path.join(ROOT, 'weekview', 'index.html'), 'utf8');
+    h = h.replace(/apiBase:\s*"[^"]*"/, 'apiBase: "' + (process.env.MOCK_API || '/api') + '"');
+    res.writeHead(200, { 'content-type': 'text/html' });
+    return res.end(h);
+  }
+
   if (u.pathname === '/blank' || u.pathname === '/blank/') {
     let h = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
     h = h.replace(/apiBase:\s*"[^"]*"/, 'apiBase: ""');

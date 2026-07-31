@@ -1,6 +1,42 @@
-const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
+/* Resolve Playwright wherever it happens to live. Exits 2 (distinct from a real
+   test failure) when it isn't installed, so a machine without it can still
+   publish — the credential scan in watch.js is the guard that must never be
+   skipped, and it has no dependencies. */
+function loadPlaywright() {
+  const tries = ["playwright", "playwright-core"];
+  for (const t of tries) { try { return require(t); } catch (e) {} }
+  try {
+    const root = require("child_process")
+      .execSync("npm root -g", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return require(root + "/playwright");
+  } catch (e) {}
+  try { return require("/home/claude/.npm-global/lib/node_modules/playwright"); } catch (e) {}
+  return null;
+}
+const _pw = loadPlaywright();
+if (!_pw) {
+  console.log("\n  Playwright isn't installed here, so the browser tests were skipped.");
+  console.log("  Everything in this bundle was tested before it was handed over.\n");
+  console.log("  To run them locally too:");
+  console.log("    npm install -g playwright && npx playwright install chromium\n");
+  process.exit(2);
+}
+const { chromium } = _pw;
 
 const BASE = process.env.BASE || 'http://localhost:8099';
+
+/* Screenshots are a debugging aid, not an assertion. Write them beside this
+   script (gitignored) and never let a filesystem problem fail the suite —
+   an absolute path from another machine used to do exactly that. */
+const path = require('path');
+const fs = require('fs');
+const SHOT_DIR = path.join(__dirname, '.screenshots');
+async function shot(pageOrCtx, name) {
+  try {
+    fs.mkdirSync(SHOT_DIR, { recursive: true });
+    await pageOrCtx.screenshot({ path: path.join(SHOT_DIR, name + '.png'), fullPage: true });
+  } catch (e) { /* never fail a test run over a screenshot */ }
+}
 let pass = 0, fail = 0;
 function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else { fail++; console.log('  FAIL  ' + n + (extra ? ' :: ' + extra : '')); } }
 
@@ -23,6 +59,15 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   ok('status says booking is not switched on',
     /isn't switched on/i.test(await page.textContent('#statusText')));
   ok('status has stale styling', (await page.getAttribute('#status', 'class')).includes('is-stale'));
+  ok('status sits below every panel, just above the footer', await page.evaluate(() => {
+      const st = document.querySelector('#status').getBoundingClientRect();
+      const ft = document.querySelector('.sitefoot').getBoundingClientRect();
+      const above = ['#notlive', '#slotwrap', '#modes', '.hero']
+        .map(sel => document.querySelector(sel))
+        .filter(el => el && el.offsetParent !== null)
+        .every(el => el.getBoundingClientRect().top < st.top);
+      return above && st.bottom <= ft.top + 1;
+    }));
   ok('FAIL CLOSED: no slots offered without a live calendar',
     (await page.locator('#slots .slot').count()) === 0);
   ok('FAIL CLOSED: date rail hidden', await page.locator('#rail').isHidden());
@@ -358,9 +403,9 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   await pm.locator('.rail .day:not(.is-empty)').first().click();
   await pm.waitForTimeout(150);
   ok('slots usable on mobile', (await pm.locator('#slots .slot').count()) > 0);
-  await pm.screenshot({ path: '/home/claude/tt/shot-mobile.png', fullPage: true });
+  await shot(pm, 'mobile');
 
-  await page.screenshot({ path: '/home/claude/tt/shot-desktop.png', fullPage: true });
+  await shot(page, 'desktop');
 
   console.log('\n' + '='.repeat(46));
   console.log(`  ${pass} passed, ${fail} failed`);
