@@ -106,24 +106,49 @@ const ok = (n, c, extra) => {
   await page.click('.f[data-f="both"]'); await page.waitForTimeout(300);
   const txt = await page.inputValue('#txt');
   ok('text is generated', txt.length > 20, txt.slice(0, 60));
-  ok('labels the session type', /\((virtual|in person)\)/.test(txt), txt.slice(0, 90));
   ok('states the timezone', /All times Pacific/.test(txt));
   ok('states session length', /53 minutes/.test(txt));
-  ok('one line per day with openings', await page.evaluate(() => {
-    const lines = document.querySelector('#txt').value.split('\n\n')[0].split('\n').filter(Boolean);
+  ok('groups times under Virtual / In person headings',
+    /\n {2}Virtual: /.test(txt) && /\n {2}In person: /.test(txt), txt.slice(0, 120));
+  ok('one block per day with openings', await page.evaluate(() => {
+    const body = document.querySelector('#txt').value;
+    const blocks = body.split('\n\n').filter(b => !/^All times/.test(b));
     const days = [...document.querySelectorAll('.d')].filter(d => d.querySelector('.c')).length;
-    return lines.length === days;
+    return blocks.length === days;
   }));
-  ok('uniform days label once, mixed days label each', await page.evaluate(() => {
-    const lines = document.querySelector('#txt').value.split('\n\n')[0].split('\n').filter(Boolean);
-    return lines.every(l => {
-      const afterDash = l.split('— ')[1] || '';
-      const perSlot = (afterDash.match(/\((virtual|in person)\)/g) || []).length;
-      const onDate = /\((virtual|in person)\) —/.test(l);
-      // exactly one of the two styles, never both, never neither
-      return (onDate && perSlot === 0) || (!onDate && perSlot > 0);
-    });
-  }), txt.split('\n')[0]);
+  ok('every listed time appears under the right heading', await page.evaluate(() => {
+    const body = document.querySelector('#txt').value;
+    for (const block of body.split('\n\n')) {
+      if (/^All times/.test(block)) continue;
+      const lines = block.split('\n');
+      const day = lines[0];
+      for (const l of lines.slice(1)) {
+        const m = l.match(/^ {2}(Virtual|In person): (.+)$/);
+        if (!m) return false;
+        const want = m[1] === 'Virtual' ? 'virtual' : 'inperson';
+        const times = m[2].split(', ');
+        // cross-check against the grid: that day must hold these exact times in that mode
+        const cell = [...document.querySelectorAll('.d')].find(d =>
+          d.querySelector('.c') &&
+          day.includes(d.querySelector('.d-num').textContent));
+        if (!cell) return false;
+        const cls = want === 'virtual' ? 'v' : 'p';
+        const grid = [...cell.querySelectorAll('.c.' + cls)].map(e => e.textContent);
+        if (JSON.stringify(grid) !== JSON.stringify(times)) return false;
+      }
+    }
+    return true;
+  }), txt.split('\n\n')[0]);
+
+  console.log('\n[6b] Single-filter output collapses');
+  await page.click('.f[data-f="virtual"]'); await page.waitForTimeout(300);
+  const vtxt = await page.inputValue('#txt');
+  ok('no repeated headings when one type is selected',
+    !/Virtual: /.test(vtxt) && !/In person: /.test(vtxt), vtxt.slice(0, 80));
+  ok('states the type once at the end', /All virtual\./.test(vtxt), vtxt.slice(-70));
+  await page.click('.f[data-f="inperson"]'); await page.waitForTimeout(300);
+  ok('in-person footer says so', /All in person\./.test(await page.inputValue('#txt')));
+  await page.click('.f[data-f="both"]'); await page.waitForTimeout(300);
 
   console.log('\n[7] Busy subtraction');
   const before = await page.locator('.d .c').count();

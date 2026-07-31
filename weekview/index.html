@@ -154,6 +154,7 @@ var AVAILABILITY = {
   ]
 };
 var LABEL = { virtual:"virtual", inperson:"in person" };
+var TITLE = { virtual:"Virtual", inperson:"In person" };
 
 /* ---- timezone helpers: template is wall clock, everything else is an instant ---- */
 function tzOffsetMs(instant, tz){
@@ -305,35 +306,45 @@ function render(){
     ? total + " opening" + (total===1?"":"s") + " over two weeks · " + lbl
     : "";
 
-  buildText(byDay, total);
+  buildText(byDay);
   renderNote();
 }
 
-/* Labeled output. When every slot on a day shares a type the label moves to the
-   date, which says the same thing without repeating it six times. */
-function buildText(byDay, total){
-  var lines = [];
+/* Output grouped by session type under each day. With one type selected the
+   sub-headings would repeat on every line, so it collapses to a flat list and
+   states the type once at the bottom instead. */
+function buildText(byDay){
+  var blocks = [];
+  var dayCount = 0;
+  var single = state.filter !== "both";
+
   byDay.forEach(function(d){
     if (!d.slots.length) return;
-    var modes = {};
-    d.slots.forEach(function(s){ modes[s.mode] = 1; });
-    var uniform = Object.keys(modes).length === 1;
-    if (uniform){
-      lines.push(fmtDay(d.ds) + " (" + LABEL[d.slots[0].mode] + ") — " +
+    dayCount++;
+    if (single){
+      blocks.push(fmtDay(d.ds) + " — " +
         d.slots.map(function(s){ return fmtTime(s.start); }).join(", "));
-    } else {
-      lines.push(fmtDay(d.ds) + " — " +
-        d.slots.map(function(s){ return fmtTime(s.start) + " (" + LABEL[s.mode] + ")"; }).join(", "));
+      return;
     }
+    var lines = [fmtDay(d.ds)];
+    ["virtual","inperson"].forEach(function(mode){
+      var t = d.slots.filter(function(s){ return s.mode === mode; });
+      if (!t.length) return;
+      lines.push("  " + TITLE[mode] + ": " +
+        t.map(function(s){ return fmtTime(s.start); }).join(", "));
+    });
+    blocks.push(lines.join("\n"));
   });
 
-  var body = lines.length
-    ? lines.join("\n") + "\n\nAll times Pacific. Sessions are " + CONFIG.sessionMins + " minutes."
+  var footer = "All times Pacific. Sessions are " + CONFIG.sessionMins + " minutes.";
+  if (single) footer = "All " + LABEL[state.filter] + ". " + footer;
+
+  $("txt").value = blocks.length
+    ? blocks.join(single ? "\n" : "\n\n") + "\n\n" + footer
     : "No openings in the next two weeks for this selection.";
 
-  $("txt").value = body;
-  $("outsub").textContent = lines.length
-    ? lines.length + " day" + (lines.length===1?"":"s") + " with openings"
+  $("outsub").textContent = dayCount
+    ? dayCount + " day" + (dayCount===1?"":"s") + " with openings"
     : "nothing to send yet";
 }
 

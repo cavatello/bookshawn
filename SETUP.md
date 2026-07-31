@@ -26,7 +26,7 @@ bookshawn/
     ├── watch.js          save a file and it ships (see below)
     ├── serve.js          local test harness
     ├── test-cal.js       94 assertions (booking page)
-    ├── test-weekview.js  39 assertions (two-week planner)
+    ├── test-weekview.js  42 assertions (two-week planner)
     ├── test-devices.js   159 checks across 11 viewports
     ├── get-token.js      issues a Google refresh token
     ├── check-google.js   validates your Google credentials
@@ -716,14 +716,25 @@ Two Sunday-start weeks, filterable to virtual, in person, or both, with a
 copy-paste block at the bottom:
 
 ```
-Tue Aug 4 (in person) — 2:00 PM, 3:00 PM, 7:00 PM
-Wed Aug 5 — 7:00 AM (in person), 3:00 PM (virtual)
+Tue, Aug 4
+  Virtual: 8:00 AM, 11:00 AM, 12:00 PM
+  In person: 2:00 PM, 3:00 PM, 7:00 PM
+
+Wed, Aug 5
+  In person: 7:00 AM, 8:00 AM
 
 All times Pacific. Sessions are 53 minutes.
 ```
 
-When every slot on a day is the same type the label moves to the date, which says
-the same thing without repeating itself six times. Mixed days label each time.
+With one type selected the headings would repeat on every line, so it collapses
+to a flat list and names the type once at the end:
+
+```
+Tue, Aug 4 — 8:00 AM, 11:00 AM, 12:00 PM
+Wed, Aug 5 — 3:00 PM, 4:00 PM, 5:00 PM
+
+All virtual. All times Pacific. Sessions are 53 minutes.
+```
 
 **No 24-hour notice here.** The public page won't offer anything inside 24 hours;
 this one shows everything still ahead of you, including later today, because
