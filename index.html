@@ -110,6 +110,12 @@
   .day.is-empty{cursor:default; background:#EDEEE6; opacity:.6;}
   .day.is-sel{border-color:var(--ink); border-width:1.5px; box-shadow:0 1px 3px rgba(38,36,30,.09);}
   .day-dow{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted-2); font-weight:600;}
+  /* Today reads even when the day is greyed out, which a colour alone wouldn't. */
+  .day.is-today .day-dow{color:#4A6141; font-weight:700;}
+  .day.is-today .day-num{color:#4A6141;}
+  .day.is-today{border-color:var(--sage);}
+  .day.is-today.is-sel{border-color:var(--ink);}
+  .day.is-today.is-sel .day-dow, .day.is-today.is-sel .day-num{color:var(--ink);}
   .day-num{font-family:'Fraunces',serif; font-size:19px; font-weight:600; line-height:1;}
   .day.is-empty .day-num{color:var(--muted-2); font-weight:400;}
   .day-dots{display:flex; gap:2.5px; flex-wrap:wrap; justify-content:center; max-width:44px; min-height:6px;}
@@ -688,8 +694,16 @@ function renderRail(){
     var ds = dayStart(n);
     var slots = n <= CONFIG.horizonDays ? slotsForDay(ds, state.mode) : [];
     var btn = document.createElement("button");
+    // Declared before use: var is function-scoped, so reading it above its
+    // assignment gives undefined on the first pass and the PREVIOUS day's value
+    // afterwards — which marks the wrong cell.
+    // "Today" in the practice's timezone, not the visitor's: the rail is a
+    // picture of Shawn's week, and someone in Berlin shouldn't see it shift.
+    var isToday = ds === dayStart(0);
+
     btn.className = "day" + (slots.length ? "" : " is-empty") +
-                    (state.selectedDay === ds ? " is-sel" : "");
+                    (state.selectedDay === ds ? " is-sel" : "") +
+                    (isToday ? " is-today" : "");
     btn.disabled = !slots.length;
 
     var dow = new Intl.DateTimeFormat("en-US",{ timeZone:CONFIG.practiceTz, weekday:"short" })
@@ -703,7 +717,7 @@ function renderRail(){
       for (var k = 0; k < shown; k++) dots += "<i></i>";
     }
     btn.innerHTML =
-      '<span class="day-dow">' + dow + '</span>' +
+      '<span class="day-dow">' + (isToday ? "Today" : dow) + '</span>' +
       '<span class="day-num">' + num + '</span>' +
       (slots.length
         ? '<span class="day-dots">' + dots + '</span>'
@@ -1026,8 +1040,23 @@ document.querySelectorAll(".mode").forEach(function(b){
     render();
   };
 });
-$("prevWk").onclick = function(){ if (state.weekOffset > 0){ state.weekOffset--; render(); } };
-$("nextWk").onclick = function(){ state.weekOffset++; render(); };
+/* Paging away from the selected day used to leave the slot panel showing a
+   date that appeared nowhere in the rail. Drop the selection when it scrolls
+   out of view — the visible week is what someone is looking at. */
+function clearSelectionOutsideWeek(){
+  if (state.selectedDay === null) return;
+  var first = dayStart(state.weekOffset * 7), last = dayStart(state.weekOffset * 7 + 6);
+  if (state.selectedDay < first || state.selectedDay > last){
+    state.selectedDay = null;
+    state.selectedSlot = null;
+  }
+}
+$("prevWk").onclick = function(){
+  if (state.weekOffset > 0){ state.weekOffset--; clearSelectionOutsideWeek(); render(); }
+};
+$("nextWk").onclick = function(){
+  state.weekOffset++; clearSelectionOutsideWeek(); render();
+};
 $("bSubmit").onclick = submitBooking;
 
 /* Deep links for the two web calendars people actually use. Apple, desktop

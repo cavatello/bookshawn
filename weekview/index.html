@@ -56,7 +56,9 @@
   .d-dow{display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
     color:var(--muted-2); font-weight:600;}
   .d-num{display:block; font-family:'Fraunces',serif; font-size:18px; font-weight:600; line-height:1.2;}
-  .d.today .d-num{color:var(--sage);}
+  .d.today{border-color:var(--sage);}
+  .d.today .d-dow{color:#4A6141; font-weight:700;}
+  .d.today .d-num{color:#4A6141;}
   .chips{display:flex; flex-direction:column; gap:4px;}
   .c{font-size:11.5px; font-weight:600; padding:4px 5px; border-radius:5px;
     text-align:center; font-variant-numeric:tabular-nums; white-space:nowrap;}
@@ -314,13 +316,18 @@ function render(){
       total += slots.length;
       byDay.push({ ds:ds, slots:slots });
 
+      // Declared before it is used: var is function-scoped, so reading it above
+      // its assignment gives undefined on the first pass and the PREVIOUS day's
+      // value on every pass after — marking the wrong cell.
+      var isToday = ds === todayMid;
       var cell = document.createElement("div");
       cell.className = "d" + (ds < todayMid ? " past" : "") +
-                       (ds === todayMid ? " today" : "") +
+                       (isToday ? " today" : "") +
                        (slots.length ? "" : " none");
       var dow = new Intl.DateTimeFormat("en-US",{timeZone:TZ,weekday:"short"}).format(new Date(ds));
       var num = new Intl.DateTimeFormat("en-US",{timeZone:TZ,day:"numeric"}).format(new Date(ds));
-      var html = '<div class="d-h"><span class="d-dow">'+dow+'</span><span class="d-num">'+num+'</span></div>';
+      var html = '<div class="d-h"><span class="d-dow">'+(isToday ? "Today" : dow)+
+                 '</span><span class="d-num">'+num+'</span></div>';
       if (slots.length){
         html += '<div class="chips">' + slots.map(function(s){
           return '<span class="c '+(s.mode==="virtual"?"v":"p")+'">'+fmtTime(s.start)+'</span>';

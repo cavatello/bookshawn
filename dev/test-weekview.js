@@ -57,15 +57,22 @@ const ok = (n, c, extra) => {
     (await page.getAttribute('.top a', 'href')) === '../');
 
   console.log('\n[2] Weeks start on Sunday');
+  // One cell reads "Today" instead of its weekday, so compare position-wise
+  // and allow exactly one substitution.
   const dows = await page.evaluate(() =>
     [...document.querySelectorAll('#d0 .d-dow')].map(e => e.textContent));
+  const want = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const swapped = dows.filter((d, i) => d !== want[i]);
   ok('first week runs Sun..Sat',
-    JSON.stringify(dows) === JSON.stringify(['Sun','Mon','Tue','Wed','Thu','Fri','Sat']),
+    dows.length === 7 && swapped.length <= 1 && swapped.every(d => d === 'Today'),
     JSON.stringify(dows));
   const dows1 = await page.evaluate(() =>
     [...document.querySelectorAll('#d1 .d-dow')].map(e => e.textContent));
   ok('second week also Sun..Sat',
-    JSON.stringify(dows1) === JSON.stringify(['Sun','Mon','Tue','Wed','Thu','Fri','Sat']));
+    JSON.stringify(dows1) === JSON.stringify(want), JSON.stringify(dows1));
+  ok('exactly one cell is marked today',
+    (await page.locator('.d.today').count()) === 1);
+  ok('today says so in words', /today/i.test(await page.textContent('.d.today .d-dow')));
   ok('second week starts 7 days after the first', await page.evaluate(() =>
     Math.round((dayAt(7) - dayAt(0)) / 86400000) === 7));
 

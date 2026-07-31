@@ -880,3 +880,40 @@ blocks cached copies, `nosnippet` blocks preview text.
 **This is not privacy.** Anyone with a URL can open any of these pages, and
 compliant crawlers are the only ones that honour the rules. Treat all three as
 unlisted, not private. None of them expose client names — only free time.
+
+---
+
+## Today, and which week the rail shows
+
+All three pages mark the current day the same way: **the weekday label is replaced
+with the word "Today"**, plus a sage border and number.
+
+The word matters more than the colour. A day with no openings is greyed out, and
+that's exactly when someone squints at it — a colour-only marker disappears
+there, the word doesn't.
+
+"Today" is computed in `CONFIG.practiceTz`, not the visitor's timezone. The rail
+is a picture of Shawn's week; someone booking from Berlin shouldn't see it shift.
+
+### Rolling week vs fixed week
+
+The booking pages show a **rolling seven days** starting today. The planner shows
+**fixed Sunday-start weeks**. That's deliberate, not an inconsistency:
+
+| | Job | Shape |
+|---|---|---|
+| `/` and `/virtual/` | when can I come in? | rolling — every cell is bookable |
+| `/weekview/` | what does my fortnight look like? | fixed weeks — past days visible for context |
+
+A fixed Monday start on the booking pages would waste cells. On a Friday, four of
+seven are already gone; on a Saturday, five. Late in the week is exactly when
+someone is most likely looking for something soon.
+
+`dev/mockup-rail.html` has all six variants side by side if you want to revisit
+the decision.
+
+### Paging keeps the rail and the panel in step
+
+Selecting a day, paging to another week, and paging back used to leave the slot
+panel showing a date that appeared nowhere in the rail — times for a day nothing
+was highlighting. The selection now clears when it scrolls out of view.

@@ -232,6 +232,36 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   ok('first surviving slot is 10AM', /10:00.?AM/.test(after[0]), JSON.stringify(after));
 
   // ---------- 4. UI FLOW ----------
+  console.log('\n[3b] Today marker and week paging');
+  {
+    ok('exactly one day is marked today',
+      (await page.locator('.rail .day.is-today').count()) === 1,
+      String(await page.locator('.rail .day.is-today').count()));
+    ok('today is labelled in words, not just colour',
+      /today/i.test(await page.textContent('.rail .day.is-today .day-dow')));
+    ok('today is the practice-local today, not the viewer\'s', await page.evaluate(() => {
+      const el = document.querySelector('.rail .day.is-today');
+      const n = el.querySelector('.day-num').textContent;
+      const want = new Intl.DateTimeFormat('en-US',
+        { timeZone: CONFIG.practiceTz, day: 'numeric' }).format(new Date());
+      return n === want;
+    }));
+    // Paging away used to leave the slot panel showing a date that appeared
+    // nowhere in the rail — times for a day nothing was highlighting.
+    await page.click('#nextWk'); await page.waitForTimeout(250);
+    const far = page.locator('.rail .day:not(.is-empty)');
+    if (await far.count()) {
+      await far.first().click(); await page.waitForTimeout(200);
+      const picked = await page.textContent('#slotHead');
+      await page.click('#prevWk'); await page.waitForTimeout(250);
+      const after = await page.textContent('#slotHead');
+      ok('paging away clears a selection that left the rail',
+        after !== picked && /Pick a day/i.test(after), `${picked} -> ${after}`);
+      ok('no day still reads as selected', (await page.locator('.rail .day.is-sel').count()) === 0);
+    }
+    await page.waitForTimeout(100);
+  }
+
   console.log('\n[4] Click-through booking flow');
   await page.click('.mode[data-mode="inperson"]');
   await page.waitForTimeout(150);
