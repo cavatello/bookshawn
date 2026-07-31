@@ -104,20 +104,25 @@ const ok = (n, c, extra) => {
 
   console.log('\n[6] Copy text');
   await page.click('.f[data-f="both"]'); await page.waitForTimeout(300);
-  const txt = await page.inputValue('#txt');
+  const txt = await page.evaluate(() => plainText());
   ok('text is generated', txt.length > 20, txt.slice(0, 60));
   ok('states the timezone', /All times Pacific/.test(txt));
   ok('states session length', /53 minutes/.test(txt));
   ok('groups times under Virtual / In person headings',
-    /\n {2}Virtual: /.test(txt) && /\n {2}In person: /.test(txt), txt.slice(0, 120));
+    /Virtual: /.test(txt) && /In person: /.test(txt), txt.slice(0, 120));
+  ok('type labels are bold in the preview', await page.evaluate(() => {
+    const bs = [...document.querySelectorAll('#txt b')].map(b => b.textContent);
+    return bs.length > 0 && bs.every(t => t === 'Virtual:' || t === 'In person:');
+  }), await page.evaluate(() => [...document.querySelectorAll('#txt b')].map(b=>b.textContent).join('|')));
+  ok('bold is real markup, not asterisks', !/\*/.test(txt));
   ok('one block per day with openings', await page.evaluate(() => {
-    const body = document.querySelector('#txt').value;
+    const body = plainText();
     const blocks = body.split('\n\n').filter(b => !/^All times/.test(b));
     const days = [...document.querySelectorAll('.d')].filter(d => d.querySelector('.c')).length;
     return blocks.length === days;
   }));
   ok('every listed time appears under the right heading', await page.evaluate(() => {
-    const body = document.querySelector('#txt').value;
+    const body = plainText();
     for (const block of body.split('\n\n')) {
       if (/^All times/.test(block)) continue;
       const lines = block.split('\n');
@@ -142,13 +147,47 @@ const ok = (n, c, extra) => {
 
   console.log('\n[6b] Single-filter output collapses');
   await page.click('.f[data-f="virtual"]'); await page.waitForTimeout(300);
-  const vtxt = await page.inputValue('#txt');
+  const vtxt = await page.evaluate(() => plainText());
   ok('no repeated headings when one type is selected',
     !/Virtual: /.test(vtxt) && !/In person: /.test(vtxt), vtxt.slice(0, 80));
   ok('states the type once at the end', /All virtual\./.test(vtxt), vtxt.slice(-70));
   await page.click('.f[data-f="inperson"]'); await page.waitForTimeout(300);
-  ok('in-person footer says so', /All in person\./.test(await page.inputValue('#txt')));
+  ok('in-person footer says so', /All in person\./.test(await page.evaluate(() => plainText())));
   await page.click('.f[data-f="both"]'); await page.waitForTimeout(300);
+
+  console.log('\n[6c] Clipboard carries both flavours');
+  {
+    // Grant clipboard access so we can read back what Copy actually wrote.
+    await ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.click('.f[data-f="both"]'); await page.waitForTimeout(300);
+    await page.click('#copy'); await page.waitForTimeout(500);
+    ok('button confirms the copy', /Copied/.test(await page.textContent('#copy')));
+    const flavours = await page.evaluate(async () => {
+      try {
+        const items = await navigator.clipboard.read();
+        const types = items.flatMap(i => i.types);
+        const html = types.includes('text/html')
+          ? await (await items.find(i => i.types.includes('text/html')).getType('text/html')).text() : '';
+        const plain = types.includes('text/plain')
+          ? await (await items.find(i => i.types.includes('text/plain')).getType('text/plain')).text() : '';
+        return { types, html, plain };
+      } catch (e) { return { error: String(e) }; }
+    });
+    if (flavours.error) {
+      ok('clipboard readable in this browser', false, flavours.error);
+    } else {
+      ok('clipboard holds an html flavour', flavours.types.includes('text/html'), flavours.types.join(','));
+      ok('clipboard holds a plain flavour', flavours.types.includes('text/plain'), flavours.types.join(','));
+      ok('html flavour bolds the type labels',
+        /<b>Virtual:<\/b>/.test(flavours.html) && /<b>In person:<\/b>/.test(flavours.html),
+        flavours.html.slice(0, 140));
+      ok('plain flavour has no markup',
+        !/<[a-z]/i.test(flavours.plain) && /Virtual: /.test(flavours.plain),
+        flavours.plain.slice(0, 100));
+      ok('plain flavour keeps the day grouping',
+        /\n\n/.test(flavours.plain), JSON.stringify(flavours.plain.slice(0, 80)));
+    }
+  }
 
   console.log('\n[7] Busy subtraction');
   const before = await page.locator('.d .c').count();
@@ -178,7 +217,7 @@ const ok = (n, c, extra) => {
   ok('shows an error note', (await p2.getAttribute('#note', 'class')).includes('bad'));
   ok('offers no slots at all', (await p2.locator('.d .c').count()) === 0);
   ok('copy text says so, rather than inventing times',
-    /No openings/.test(await p2.inputValue('#txt')), (await p2.inputValue('#txt')).slice(0, 60));
+    /No openings/.test(await p2.evaluate(() => plainText())), (await p2.evaluate(() => plainText())).slice(0, 60));
 
   console.log('\n[9] Responsive');
   for (const [w, h, label] of [[390, 844, 'iPhone'], [768, 1024, 'iPad'], [1440, 900, 'desktop']]) {

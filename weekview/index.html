@@ -76,10 +76,12 @@
     cursor:pointer; min-height:44px;}
   .copy:hover{background:#2C3029;}
   .copy.done{background:var(--sage); color:#1C2B1A;}
-  textarea#txt{width:100%; border:none; padding:18px 20px; font-family:ui-monospace,
-    SFMono-Regular,Menlo,monospace; font-size:13px; line-height:1.75; color:var(--ink);
-    background:var(--card); resize:vertical; min-height:220px;}
-  textarea#txt:focus{outline:none;}
+  #txt{padding:18px 20px; font-size:14px; line-height:1.75; color:var(--ink);
+    background:var(--card); min-height:200px; white-space:pre-wrap;}
+  #txt:focus{outline:none;}
+  #txt b{font-weight:700; color:#2A3A28;}
+  #txt .day{font-weight:600;}
+  #txt .foot{color:var(--muted); font-size:13px;}
 
   .note{display:flex; align-items:center; gap:8px; margin:26px 0 0;
     font-size:12.5px; color:var(--muted-2);}
@@ -119,7 +121,8 @@
       <div><h2>For your email</h2><p id="outsub"></p></div>
       <button class="copy" id="copy">Copy</button>
     </div>
-    <textarea id="txt" spellcheck="false" aria-label="Availability text to copy"></textarea>
+    <div id="txt" contenteditable="true" spellcheck="false" role="textbox" aria-multiline="true"
+         aria-label="Availability text to copy — editable"></div>
   </div>
 
   <div class="note" id="note"><span class="dot"></span><span id="noteText">Checking your calendar…</span></div>
@@ -182,7 +185,7 @@ function fmtTime(ts){ return new Intl.DateTimeFormat("en-US",{ timeZone:TZ, hour
 function fmtDay(ts){ return new Intl.DateTimeFormat("en-US",{ timeZone:TZ, weekday:"short", month:"short", day:"numeric" }).format(new Date(ts)); }
 
 /* ---- state ---- */
-var state = { filter:"both", busy:[], status:"loading", fetchedAt:null };
+var state = { filter:"both", busy:[], status:"loading", fetchedAt:null, plain:"" };
 
 /* Sunday of the current week, in practice-local time. */
 function weekStart(){
@@ -313,35 +316,63 @@ function render(){
 /* Output grouped by session type under each day. With one type selected the
    sub-headings would repeat on every line, so it collapses to a flat list and
    states the type once at the bottom instead. */
+/* The plain-text form of whatever is currently in the preview, including any
+   edits. One function so the clipboard and anything checking it can never
+   disagree about what is actually being sent. */
+function plainText(){
+  return $("txt").innerText
+    .replace(/\u00a0/g, " ")
+    .replace(/^[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+var esc = function(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+
+/* Builds both flavours at once. Plain text is the fallback for anywhere that
+   can't take markup; the HTML version keeps Virtual / In person bold when it
+   lands in Gmail, Mail or Outlook. */
 function buildText(byDay){
-  var blocks = [];
+  var plain = [], html = [];
   var dayCount = 0;
   var single = state.filter !== "both";
 
   byDay.forEach(function(d){
     if (!d.slots.length) return;
     dayCount++;
+    var day = fmtDay(d.ds);
+
     if (single){
-      blocks.push(fmtDay(d.ds) + " — " +
-        d.slots.map(function(s){ return fmtTime(s.start); }).join(", "));
+      var times = d.slots.map(function(s){ return fmtTime(s.start); }).join(", ");
+      plain.push(day + " — " + times);
+      html.push('<div><span class="day">' + esc(day) + '</span> — ' + esc(times) + '</div>');
       return;
     }
-    var lines = [fmtDay(d.ds)];
+
+    var pl = [day], hl = ['<div class="day">' + esc(day) + '</div>'];
     ["virtual","inperson"].forEach(function(mode){
       var t = d.slots.filter(function(s){ return s.mode === mode; });
       if (!t.length) return;
-      lines.push("  " + TITLE[mode] + ": " +
-        t.map(function(s){ return fmtTime(s.start); }).join(", "));
+      var times = t.map(function(s){ return fmtTime(s.start); }).join(", ");
+      pl.push("  " + TITLE[mode] + ": " + times);
+      hl.push('<div>&nbsp;&nbsp;<b>' + esc(TITLE[mode]) + ':</b> ' + esc(times) + '</div>');
     });
-    blocks.push(lines.join("\n"));
+    plain.push(pl.join("\n"));
+    html.push(hl.join(""));
   });
 
   var footer = "All times Pacific. Sessions are " + CONFIG.sessionMins + " minutes.";
   if (single) footer = "All " + LABEL[state.filter] + ". " + footer;
 
-  $("txt").value = blocks.length
-    ? blocks.join(single ? "\n" : "\n\n") + "\n\n" + footer
-    : "No openings in the next two weeks for this selection.";
+  if (!plain.length){
+    var none = "No openings in the next two weeks for this selection.";
+    state.plain = none;
+    $("txt").innerHTML = '<div class="foot">' + esc(none) + '</div>';
+  } else {
+    state.plain = plain.join(single ? "\n" : "\n\n") + "\n\n" + footer;
+    $("txt").innerHTML = html.join(single ? "" : '<div><br></div>') +
+      '<div><br></div><div class="foot">' + esc(footer) + '</div>';
+  }
 
   $("outsub").textContent = dayCount
     ? dayCount + " day" + (dayCount===1?"":"s") + " with openings"
@@ -368,14 +399,29 @@ document.querySelectorAll(".f").forEach(function(b){
 });
 
 $("copy").onclick = function(){
-  var ta = $("txt"), btn = $("copy");
+  var el = $("txt"), btn = $("copy");
   var done = function(){
     btn.textContent = "Copied"; btn.classList.add("done");
     setTimeout(function(){ btn.textContent = "Copy"; btn.classList.remove("done"); }, 1600);
   };
-  if (navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(ta.value).then(done, function(){ ta.select(); document.execCommand("copy"); done(); });
-  } else { ta.select(); document.execCommand("copy"); done(); }
+  // Read from the element so any edits you make are what gets copied.
+  var htmlOut = '<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:14px;line-height:1.6">' +
+                el.innerHTML + '</div>';
+  var textOut = plainText();
+
+  // Write both flavours so a rich editor keeps the bold and a plain field still works.
+  if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+    navigator.clipboard.write([new ClipboardItem({
+      "text/html":  new Blob([htmlOut],  { type:"text/html"  }),
+      "text/plain": new Blob([textOut], { type:"text/plain" })
+    })]).then(done, function(){ navigator.clipboard.writeText(textOut).then(done); });
+  } else if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(textOut).then(done);
+  } else {
+    var r = document.createRange(); r.selectNodeContents(el);
+    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    document.execCommand("copy"); sel.removeAllRanges(); done();
+  }
 };
 
 render();

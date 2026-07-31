@@ -42,14 +42,28 @@ const DOWNLOADS = process.env.DOWNLOADS || path.join(process.env.HOME || "", "Do
 
 // Files I hand over, and where each belongs. A new copy landing in Downloads
 // is treated exactly like editing the file in place.
+// dest, plus an optional signature the file must contain. Two different pages
+// download as "index.html"; without a signature the weekview page can land on
+// top of the booking page and nobody notices until a client sees it.
 const FILE_MAP = {
-  "index.html": ".", "SETUP.md": ".", "NEXT-STEPS.md": ".",
-  "worker.js": "worker", "wrangler.toml": "worker",
-  "serve.js": "dev", "test-cal.js": "dev", "watch.js": "dev",
-  "check-google.js": "dev", "check-worker.js": "dev", "get-token.js": "dev",
+  "index.html":      { dest: ".",      must: 'id="modes"' },
+  "SETUP.md":        { dest: "." },
+  "NEXT-STEPS.md":   { dest: "." },
+  "worker.js":       { dest: "worker", must: "freeBusy" },
+  "wrangler.toml":   { dest: "worker", must: "CALENDAR_ID" },
+  "serve.js":        { dest: "dev" },
+  "test-cal.js":     { dest: "dev" },
+  "test-weekview.js":{ dest: "dev" },
+  "test-devices.js": { dest: "dev" },
+  "watch.js":        { dest: "dev" },
+  "check-google.js": { dest: "dev" },
+  "check-worker.js": { dest: "dev" },
+  "check-booking.js":{ dest: "dev" },
+  "get-token.js":    { dest: "dev" },
 };
 const IGNORE = [/(^|\/)\.git(\/|$)/, /node_modules/, /\.wrangler/, /\.DS_Store$/,
-                /\.bak$/, /(^|\/)install\.sh$/, /~$/, /\.swp$/];
+                /\.bak$/, /(^|\/)install\.sh$/, /~$/, /\.swp$/,
+                /(^|\/)\.screenshots(\/|$)/];
 
 const g = (s) => `\x1b[32m${s}\x1b[0m`;
 const r = (s) => `\x1b[31m${s}\x1b[0m`;
@@ -297,7 +311,8 @@ function runInstaller() {
 function pullDownloads() {
   if (!fs.existsSync(DOWNLOADS)) return [];
   const moved = [];
-  for (const [name, dest] of Object.entries(FILE_MAP)) {
+  for (const [name, spec] of Object.entries(FILE_MAP)) {
+    const dest = spec.dest;
     const stem = name.replace(/\.[^.]+$/, "");
     const ext = name.split(".").pop();
     // newest of "name", "name-2.ext", "name (1).ext", "name_6.ext", or bare stem
@@ -312,6 +327,16 @@ function pullDownloads() {
       if (st.mtimeMs > bestT) { bestT = st.mtimeMs; best = full; }
     }
     if (!best) continue;
+
+    // Refuse anything that doesn't look like the file it claims to be.
+    if (spec.must) {
+      let head = "";
+      try { head = fs.readFileSync(best, "utf8"); } catch { continue; }
+      if (!head.includes(spec.must)) {
+        log(y("skipped " + path.basename(best) + " — doesn't look like " + name));
+        continue;
+      }
+    }
 
     const target = path.join(ROOT, dest, name);
     let same = false;
@@ -356,7 +381,10 @@ if (fs.existsSync(DOWNLOADS)) {
     clearTimeout(timer);
     timer = setTimeout(() => {
       const installed = runInstaller();
-      const moved = pullDownloads();
+      // Never pull loose files in the same cycle as a bundle: the bundle is a
+      // complete consistent set, and a stale index.html sitting in Downloads
+      // would silently overwrite what the installer just wrote.
+      const moved = installed ? [] : pullDownloads();
       if (!installed && !moved.length) return;
       pending = new Set();
       ship(new Set(installed ? ["install bundle"] : moved));
@@ -364,6 +392,8 @@ if (fs.existsSync(DOWNLOADS)) {
   });
   if (runInstaller()) schedule("install bundle");
   else { const initial = pullDownloads(); if (initial.length) schedule(initial[0]); }
+  // Loose index.html downloads are ambiguous — the booking page and the
+  // weekview page both arrive under that name. See FILE_MAP guards.
 }
 
 process.on("SIGINT", () => { console.log(dim("\n  stopped\n")); process.exit(0); });

@@ -26,7 +26,7 @@ bookshawn/
     ├── watch.js          save a file and it ships (see below)
     ├── serve.js          local test harness
     ├── test-cal.js       94 assertions (booking page)
-    ├── test-weekview.js  42 assertions (two-week planner)
+    ├── test-weekview.js  50 assertions (two-week planner)
     ├── test-devices.js   159 checks across 11 viewports
     ├── get-token.js      issues a Google refresh token
     ├── check-google.js   validates your Google credentials
@@ -725,6 +725,12 @@ Wed, Aug 5
 
 All times Pacific. Sessions are 53 minutes.
 ```
+
+**Copy writes two flavours.** The button puts both `text/html` and `text/plain`
+on the clipboard, so pasting into Gmail, Apple Mail or Outlook keeps
+**Virtual** and **In person** bold, while a plain-text field still gets clean
+text with no markup. The preview is editable — tweak it before copying and the
+edit is what gets sent.
 
 With one type selected the headings would repeat on every line, so it collapses
 to a flat list and names the type once at the end:
