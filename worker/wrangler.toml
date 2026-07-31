@@ -10,6 +10,13 @@ CALENDAR_ID    = "shawn@agoodplacetherapy.com"
 ALLOWED_ORIGIN = "https://cavatello.github.io,http://localhost:8099"
 PRACTICE_TZ    = "America/Los_Angeles"
 
+# How much warning you need before a session. Must match minNoticeHrs in
+# index.html — the page decides what to offer, this decides what to accept.
+#   24 -> tomorrow morning is only bookable if they book before this time yesterday
+#   12 -> all of tomorrow is bookable from midday today
+#    8 -> effectively all of tomorrow, from any time today
+MIN_NOTICE_HOURS = "12"
+
 # Shown as the event Location and in the invite the client receives.
 OFFICE_ADDRESS = "667 Lytton Ave, Suite 9, Palo Alto, CA 94301"
 

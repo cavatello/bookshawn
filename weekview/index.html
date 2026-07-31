@@ -117,6 +117,7 @@
     <button class="f" data-f="both" aria-pressed="true">Both</button>
     <button class="f" data-f="virtual" aria-pressed="false">Virtual only</button>
     <button class="f" data-f="inperson" aria-pressed="false">In person only</button>
+    <button class="f" data-f="allvirtual" aria-pressed="false">All as virtual</button>
   </div>
   <p class="fcount" id="fcount"></p>
 
@@ -243,7 +244,11 @@ function slotsFor(dayEpoch){
   var blockMs = (CONFIG.sessionMins+CONFIG.bufferMins)*60000;
   var step = CONFIG.slotEveryMins*60000;
   var floor = Date.now() + CONFIG.minNoticeHrs*3600000;
-  var modes = state.filter === "both" ? ["virtual","inperson"] : [state.filter];
+  // "allvirtual" takes every window on the calendar — including the ones you'd
+  // normally be in the office for — and offers the lot as video. You're there
+  // either way, so the in-person hours are bookable virtually too.
+  var asVirtual = state.filter === "allvirtual";
+  var modes = (state.filter === "both" || asVirtual) ? ["virtual","inperson"] : [state.filter];
 
   modes.forEach(function(mode){
     AVAILABILITY[mode].forEach(function(w){
@@ -254,7 +259,7 @@ function slotsFor(dayEpoch){
       for (var t=ws; t+sessionMs<=we; t+=step){
         if (t < floor) continue;
         if (overlapsBusy(t, Math.min(t+blockMs, we))) continue;
-        out.push({ start:t, end:t+sessionMs, mode:mode });
+        out.push({ start:t, end:t+sessionMs, mode: asVirtual ? "virtual" : mode });
       }
     });
   });
@@ -334,7 +339,9 @@ function render(){
   }
 
   var lbl = state.filter === "both" ? "virtual and in person"
-          : state.filter === "virtual" ? "virtual" : "in person";
+          : state.filter === "virtual" ? "virtual only"
+          : state.filter === "inperson" ? "in person"
+          : "all offered as virtual, including office hours";
   $("fcount").textContent = state.status === "live"
     ? total + " opening" + (total===1?"":"s") + " over two weeks · " + lbl
     : "";
@@ -365,7 +372,7 @@ var esc = function(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;
 function buildText(byDay){
   var plain = [], html = [];
   var dayCount = 0;
-  var single = state.filter !== "both";
+  var single = state.filter !== "both";   // allvirtual is one type, so it collapses too
 
   byDay.forEach(function(d){
     if (!d.slots.length) return;
@@ -392,7 +399,8 @@ function buildText(byDay){
   });
 
   var footer = "All times Pacific. Sessions are " + CONFIG.sessionMins + " minutes.";
-  if (single) footer = "All " + LABEL[state.filter] + ". " + footer;
+  if (state.filter === "allvirtual") footer = "All virtual. " + footer;
+  else if (single) footer = "All " + LABEL[state.filter] + ". " + footer;
 
   if (!plain.length){
     var none = "No openings in the next two weeks for this selection.";

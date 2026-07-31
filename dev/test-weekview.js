@@ -50,7 +50,7 @@ const ok = (n, c, extra) => {
     (await page.getAttribute('meta[name="robots"]', 'content') || '').includes('noindex'));
   ok('two week sections', (await page.locator('.wk').count()) === 2);
   ok('fourteen day cells', (await page.locator('.d').count()) === 14);
-  ok('three filters', (await page.locator('.f').count()) === 3);
+  ok('four filters', (await page.locator('.f').count()) === 4);
   ok('both selected by default',
     (await page.getAttribute('.f[data-f="both"]', 'aria-pressed')) === 'true');
   ok('links back to the booking page',
@@ -75,7 +75,7 @@ const ok = (n, c, extra) => {
 
   console.log('\n[4] Filters');
   const counts = {};
-  for (const f of ['both', 'virtual', 'inperson']) {
+  for (const f of ['both', 'virtual', 'inperson', 'allvirtual']) {
     await page.click(`.f[data-f="${f}"]`);
     await page.waitForTimeout(250);
     counts[f] = await page.locator('.d .c').count();
@@ -92,6 +92,29 @@ const ok = (n, c, extra) => {
     await page.click('.f[data-f="inperson"]'); await page.waitForTimeout(250);
     return (await page.locator('.d .c.v').count()) === 0 && (await page.locator('.d .c.p').count()) > 0;
   })());
+
+  console.log('\n[4b] All as virtual');
+  await page.click('.f[data-f="allvirtual"]'); await page.waitForTimeout(300);
+  ok('offers every open hour, same total as Both',
+    counts.allvirtual === counts.both, `allvirtual=${counts.allvirtual} both=${counts.both}`);
+  ok('offers more than the virtual windows alone',
+    counts.allvirtual > counts.virtual, `${counts.allvirtual} vs ${counts.virtual}`);
+  ok('every chip reads as virtual',
+    (await page.locator('.d .c.p').count()) === 0 &&
+    (await page.locator('.d .c.v').count()) === counts.allvirtual);
+  {
+    const t = await page.evaluate(() => plainText());
+    ok('output is a flat list, no type headings',
+      !/Virtual: /.test(t) && !/In person: /.test(t), t.slice(0, 80));
+    ok('footer says everything is virtual', /All virtual\. /.test(t), t.slice(-70));
+    // The in-person hours must actually appear, or the option does nothing.
+    ok('in-person hours are present in the list', await page.evaluate(() => {
+      const body = plainText();
+      // Wednesday in-person starts at 7:00 AM; virtual Wednesday starts at 3 PM.
+      return /Wed[^\n]*7:00 AM/.test(body);
+    }), t.split('\n').find(l => /Wed/.test(l)) || '');
+  }
+  await page.click('.f[data-f="both"]'); await page.waitForTimeout(250);
 
   console.log('\n[5] No 24-hour notice on this page');
   const noFloor = await page.evaluate(() => CONFIG.minNoticeHrs === 0);

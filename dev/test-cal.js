@@ -130,10 +130,33 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
     getComputedStyle(document.querySelector('.mode-name')).fontWeight >= 700));
   ok('in-person card shows the address',
     /667 Lytton Ave/.test(await page.textContent('.mode[data-mode="inperson"]')));
-  ok('reschedule prompt present',
+  ok('reschedule is still mentioned somewhere',
     /rescheduling/i.test(await page.textContent('.mode-note')));
 
   // ---------- 2. SLOT MATH ----------
+  console.log('\n[1b] Notice window');
+  {
+    const pageHrs = await page.evaluate(() => CONFIG.minNoticeHrs);
+    ok('page has a notice setting', Number.isFinite(pageHrs), String(pageHrs));
+    ok('nothing is offered inside the notice window', await page.evaluate(() => {
+      const floor = Date.now() + CONFIG.minNoticeHrs * 3600000;
+      for (let n = 0; n <= CONFIG.horizonDays; n++)
+        for (const mode of ['virtual', 'inperson'])
+          for (const s of slotsForDay(dayStart(n), mode))
+            if (s.start < floor) return false;
+      return true;
+    }));
+    // The Worker keeps its own copy so a hand-crafted POST can't bypass it.
+    // If the two drift apart the page offers times the Worker rejects, and the
+    // failure only surfaces when someone presses submit.
+    const toml = require('fs').readFileSync(
+      require('path').join(__dirname, '..', 'worker', 'wrangler.toml'), 'utf8');
+    const m = toml.match(/^MIN_NOTICE_HOURS\s*=\s*"(\d+)"/m);
+    ok('worker declares a notice window', !!m, 'MIN_NOTICE_HOURS missing from wrangler.toml');
+    if (m) ok('page and worker agree on the notice window',
+      Number(m[1]) === pageHrs, `worker ${m[1]}h vs page ${pageHrs}h`);
+  }
+
   console.log('\n[2] Slot math (hand-checked)');
   const math = await page.evaluate(() => {
     // Find the next Wednesday within the horizon, practice-local.
@@ -146,7 +169,8 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
     }
     const wed = findDow(3), thu = findDow(4), tue = findDow(2), sat = findDow(6);
     const out = {};
-    // Push past the 24h notice floor by looking a week out, so notice never truncates.
+    // Look a week out so the notice floor never truncates the count, whatever
+    // minNoticeHrs happens to be set to.
     const wed2 = { n: wed.n + 7, ds: dayStart(wed.n + 7) };
     const tue2 = { n: tue.n + 7, ds: dayStart(tue.n + 7) };
     out.wedInperson = slotsForDay(wed2.ds, 'inperson').map(s =>
@@ -226,17 +250,17 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   ok('booking panel opens', !(await page.locator('#book').isHidden()));
   ok('booking panel names the session type', /In person/.test(await page.textContent('#bookWhen')));
 
-  // The submit button is the whole point of the page; it should dominate its
-  // panel rather than sit level with the chips above it.
+  // The submit button is the whole point of the page. With the new/reschedule
+  // chips gone it should be the only thing in the panel that reads as an action.
   {
     const m = await page.evaluate(() => {
       const b  = document.querySelector('#bSubmit').getBoundingClientRect();
       const wr = document.querySelector('#slotwrap').getBoundingClientRect();
-      const chip = document.querySelector('#bKind .chip').getBoundingClientRect();
+
       const re = document.querySelector('#bReassure').getBoundingClientRect();
       const cs = getComputedStyle(document.querySelector('#bSubmit'));
       return { bw: Math.round(b.width), bh: Math.round(b.height),
-               inner: Math.round(wr.width), chipArea: Math.round(chip.width*chip.height),
+               inner: Math.round(wr.width),
                btnArea: Math.round(b.width*b.height),
                fs: parseFloat(cs.fontSize),
                reAbove: re.bottom <= b.top + 1 };
@@ -244,8 +268,9 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
     ok('submit spans the panel width', m.bw >= m.inner - 60, `${m.bw} vs ${m.inner}`);
     ok('submit is a large target', m.bh >= 50, `${m.bh}px tall`);
     ok('submit type is larger than the form labels', m.fs >= 16, `${m.fs}px`);
-    ok('submit outweighs the chips beside it',
-      m.btnArea > m.chipArea * 3, `${m.btnArea} vs ${m.chipArea}`);
+    // Nothing else in the panel should read as an action.
+    ok('submit is the only button in the form', await page.evaluate(() =>
+      [...document.querySelectorAll('#book button')].filter(b => b.offsetParent).length === 1));
     ok('reassurance sits above the button, not below', m.reAbove);
     const reText = (await page.textContent('#bReassure')) || '';
     ok('reassurance says what happens next',
@@ -269,14 +294,6 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
 
   await page.fill('#bName', 'Test Client');
   await page.fill('#bEmail', 'test@example.com');
-  ok('kind defaults to new session',
-    (await page.getAttribute('#bKind .chip[data-kind="new"]', 'aria-pressed')) === 'true');
-  await page.click('#bKind .chip[data-kind="reschedule"]');
-  await page.waitForTimeout(100);
-  ok('reschedule chip selects',
-    (await page.getAttribute('#bKind .chip[data-kind="reschedule"]', 'aria-pressed')) === 'true' &&
-    (await page.getAttribute('#bKind .chip[data-kind="new"]', 'aria-pressed')) === 'false');
-  await page.click('#bKind .chip[data-kind="new"]');
   await page.click('#bSubmit');
   await page.waitForTimeout(700);
   await page.waitForTimeout(600);
@@ -297,15 +314,47 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
     const ics = await page.evaluate(() => icsBlob().text());
     ok('ics carries that same location', /LOCATION:667 Lytton Ave.*\(mock\)/.test(ics));
   }
-  ok('confirmation says new vs reschedule', /New session|Rescheduled/.test(await page.textContent('#cKind')));
   ok('confirmation explains what happens next', (await page.textContent('#cNext')).length > 40);
   ok('in-person shows the Getting here panel', await page.locator('#arrive').isVisible());
-  ok('arrival names the right cross street and landmarks', await (async () => {
+  ok('bullets keep the before-you-leave detail', await (async () => {
       const t = await page.textContent('#aList');
       // Byron St, not Bryant — the cross street at Lytton.
-      return /Byron St/.test(t) && !/Bryant/.test(t) &&
-             /667 is above the porch/.test(t) && /waiting room/.test(t);
+      return /Byron St/.test(t) && !/Bryant/.test(t) && /667 is above the porch/.test(t);
     })(), await page.textContent('#aList'));
+
+  // The waiting-room instruction is the one people need at the door, so it
+  // gets its own callout rather than being the fourth bullet in a list.
+  ok('when-you-arrive callout is shown', await page.locator('#onArrive').isVisible());
+  ok('callout has a heading that stands out', await page.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector('.onarrive-h'));
+    return cs.textTransform === 'uppercase' && parseInt(cs.fontWeight, 10) >= 700;
+  }));
+  ok('waiting-room line is bold', await page.evaluate(() =>
+    [...document.querySelectorAll('#aSteps b')]
+      .some(b => /Take a seat in the ground floor waiting room/.test(b.textContent))));
+  ok('come-straight-in is bold', await page.evaluate(() =>
+    [...document.querySelectorAll('#aSteps b')].some(b => /Come straight in/.test(b.textContent))));
+  ok('callout reassures they are in the right place',
+    /right place/i.test(await page.textContent('#aSteps')));
+  ok('callout says there is nobody to check in with',
+    /nobody to check in with/i.test(await page.textContent('#aSteps')));
+  ok('waiting-room text left the bullet list',
+    !/waiting room/i.test(await page.textContent('#aList')));
+  ok('room illustration is drawn', await page.evaluate(() =>
+    document.querySelectorAll('.onarrive-art svg rect').length > 200));
+  ok('illustration has an accessible name',
+    ((await page.getAttribute('.onarrive-art svg', 'aria-label')) || '').length > 25);
+  ok('callout sits under the photo, above the bullets', await page.evaluate(() => {
+    const ph = document.querySelector('#aPhoto').getBoundingClientRect();
+    const oa = document.querySelector('#onArrive').getBoundingClientRect();
+    const ls = document.querySelector('#aList').getBoundingClientRect();
+    return ph.bottom <= oa.top + 1 && oa.bottom <= ls.top + 1;
+  }));
+  ok('callout contrasts with the panel behind it', await page.evaluate(() => {
+    const a = getComputedStyle(document.querySelector('#onArrive')).backgroundColor;
+    const b = getComputedStyle(document.querySelector('#arrive')).backgroundColor;
+    return a !== b && a !== 'rgba(0, 0, 0, 0)';
+  }));
   {
     const gm = await page.getAttribute('#aGmap', 'href');
     const am = await page.getAttribute('#aAmap', 'href');
@@ -415,7 +464,6 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
     Math.round((Date.parse(booked.end) - Date.parse(booked.start)) / 60000) === 53);
   ok('POST carries mode', booked.mode === 'inperson');
   ok('POST carries name/email', booked.name === 'Test Client' && booked.email === 'test@example.com');
-  ok('POST carries kind, defaulting to new', booked.kind === 'new');
 
   // ---------- 5. API FAILURE DEGRADES HONESTLY ----------
   console.log('\n[5] Backend down');

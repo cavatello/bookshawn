@@ -269,7 +269,16 @@ async function handleBook(body, env) {
   if (!s || !e) throw fail("Invalid times", 400);
   if (Math.round((e - s) / 60000) !== SESSION_MINUTES)
     throw fail(`Sessions are ${SESSION_MINUTES} minutes`, 400);
-  if (s < Date.now() + 24 * 3600 * 1000) throw fail("Please pick a time at least 24 hours out", 400);
+  // Must match minNoticeHrs in index.html. The server keeps its own copy so a
+  // hand-crafted POST can't book five minutes from now.
+  const noticeHrs = Number(env.MIN_NOTICE_HOURS ?? 24);
+  if (s < Date.now() + noticeHrs * 3600 * 1000) {
+    throw fail(
+      noticeHrs >= 24
+        ? "Please pick a time at least 24 hours out"
+        : `Please pick a time at least ${noticeHrs} hours out`,
+      400);
+  }
   if (!insideTemplate(s, e, mode, tz)) throw fail("That time is outside my available hours", 409);
 
   // Re-check against the live calendar immediately before writing.

@@ -26,7 +26,7 @@ bookshawn/
     ├── watch.js          save a file and it ships (see below)
     ├── serve.js          local test harness
     ├── test-cal.js       94 assertions (booking page)
-    ├── test-weekview.js  50 assertions (two-week planner)
+    ├── test-weekview.js  70 assertions (two-week planner)
     ├── test-devices.js   159 checks across 11 viewports
     ├── get-token.js      issues a Google refresh token
     ├── check-google.js   validates your Google credentials
@@ -737,8 +737,21 @@ Not linked from anywhere and marked `noindex`, but it is a public URL — treat 
 as unlisted, not private. It shows only free time, never client names, so the
 exposure is the same shape as the booking page.
 
-Two Sunday-start weeks, filterable to virtual, in person, or both, with a
-copy-paste block at the bottom:
+Two Sunday-start weeks, four filters, and a copy-paste block at the bottom.
+
+| Filter | Shows |
+|---|---|
+| **Both** | everything, grouped by session type |
+| **Virtual only** | your virtual windows |
+| **In person only** | your in-person windows |
+| **All as virtual** | every open hour, offered as video |
+
+That last one exists because you're at the office during in-person hours anyway,
+so a client who wants video can take one of those slots too. It roughly
+quadruples what you can offer a virtual client — 42 openings against 9 over a
+typical fortnight. The grid shows every chip in sage and the copied text ends
+with "All virtual.", so nobody can mistake which kind of session is on offer.
+
 
 ```
 Tue, Aug 4
@@ -773,3 +786,45 @@ you're the one deciding what's realistic.
 
 `AVAILABILITY` is duplicated here as well — a third copy alongside `index.html`
 and `worker/worker.js`. Change your hours and all three need it.
+
+---
+
+## How much notice you need
+
+Two settings, and **they must match**:
+
+| Where | Setting |
+|---|---|
+| `index.html` | `minNoticeHrs: 12` |
+| `worker/wrangler.toml` | `MIN_NOTICE_HOURS = "12"` |
+
+The page decides what to *offer*; the Worker decides what to *accept*. The Worker
+keeps its own copy so a hand-crafted POST can't book five minutes from now — the
+page's setting is a display rule, not a security one.
+
+If they drift apart, the page shows times the Worker rejects, and nobody finds
+out until someone presses submit. `dev/test-cal.js` reads both and fails if they
+disagree.
+
+### Picking a number
+
+| Value | Effect |
+|---|---|
+| `24` | tomorrow morning only bookable if they booked before this time yesterday |
+| `12` | all of tomorrow open from midday today |
+| `8` | effectively all of tomorrow, from any time today |
+| `2` | same-day booking |
+
+At 12, someone booking at 6pm can take anything from 6am tomorrow. Someone
+booking at 10pm can take from 10am.
+
+Worth thinking about before going lower: a booking creates a calendar event
+immediately, but you may not *see* it for hours. Short notice means a client
+could arrive for a session you haven't registered. Twelve hours means anything
+booked overnight is still visible with a morning's warning.
+
+To change it, edit both files, then:
+
+```bash
+cd worker && npx wrangler deploy
+```
