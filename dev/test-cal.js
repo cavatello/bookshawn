@@ -280,7 +280,20 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
       /^https:\/\/maps\.apple\.com\/\?q=/.test(am) && /667%20Lytton/.test(am),
       am && am.slice(0, 80));
   }
-  ok('photo hidden until one is configured', await page.locator('#aPhoto').isHidden());
+  ok('office photo is shown', await page.locator('#aPhoto').isVisible());
+  ok('photo has a real alt description',
+    ((await page.getAttribute('#aPhoto', 'alt')) || '').length > 20);
+  // A broken src still renders an <img>; only naturalWidth proves it loaded.
+  ok('photo actually loads (not a 404)', await page.evaluate(async () => {
+    const el = document.querySelector('#aPhoto');
+    if (el.complete) return el.naturalWidth > 0;
+    return await new Promise(r => { el.onload = () => r(true); el.onerror = () => r(false); });
+  }), await page.getAttribute('#aPhoto', 'src'));
+  ok('photo stays inside the panel', await page.evaluate(() => {
+    const p = document.querySelector('#arrive').getBoundingClientRect();
+    const i = document.querySelector('#aPhoto').getBoundingClientRect();
+    return i.right <= p.right + 1 && i.left >= p.left - 1;
+  }));
   ok('arrival gives a contact number', /971-514-2190/.test(await page.textContent('#aContact')));
   ok('add-to-calendar options present',
     (await page.locator('#cGoogle').isVisible()) &&

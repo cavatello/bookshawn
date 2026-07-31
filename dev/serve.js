@@ -63,12 +63,18 @@ const server = http.createServer((req, res) => {
     return res.end(h);
   }
 
-  let p = path.join(ROOT, u.pathname === '/' ? 'index.html' : u.pathname);
+  // /blank/ is a virtual path, so relative assets in the page resolve under it
+  // (/blank/office.jpg). Fall those through to the real file at the root —
+  // otherwise the harness 404s on images the live site serves fine.
+  let rel = u.pathname.replace(/^\/(weekview\/)?blank\//, '/');
+
+  let p = path.join(ROOT, rel === '/' ? 'index.html' : rel);
   if (fs.existsSync(p) && fs.statSync(p).isDirectory()) p = path.join(p, 'index.html');
   if (!fs.existsSync(p)) { res.writeHead(404); return res.end('nf'); }
   const ext = path.extname(p);
   const ct = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
-               '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' }[ext] || 'text/plain';
+               '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json',
+               '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }[ext] || 'text/plain';
   res.writeHead(200, { 'content-type': ct });
   res.end(fs.readFileSync(p));
 });
