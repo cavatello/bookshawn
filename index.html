@@ -135,8 +135,11 @@
     border-bottom:1px solid #47603F; font-size:13.5px;}
   .crow span{color:#9DAB98;}
   .crow b{color:#E9EBE1; font-weight:500; text-align:right;}
-  .virtual-intro{font-size:12.5px; line-height:1.6; color:#9DAB98;
-    margin:10px 0 0; padding:0 0 4px;}
+  .crow-stack{display:block; padding:13px 0;}
+  .virtual-intro{font-size:12.5px; line-height:1.6; color:#9DAB98; margin:0 0 6px;}
+  #cWhereLink{display:block; text-align:left; font-size:15px;}
+  #cWhereLink a{color:#F2F3ED; text-decoration:underline; text-underline-offset:3px;
+    word-break:break-all;}
   .confirm-next{font-size:13.5px; line-height:1.65; color:#C4D2BD; margin:0 0 22px;}
   /* ===== Getting here (in-person only) ===== */
   .arrive{margin:0 0 24px; padding:20px 20px 22px; border-radius:12px;
@@ -334,8 +337,11 @@
     <p class="confirm-tz" id="cTz"></p>
     <div class="crows">
       <div class="crow"><span>Session type</span><b id="cMode"></b></div>
-      <div class="crow"><span>Where</span><b id="cWhere"></b></div>
-      <p class="virtual-intro" id="virtualIntro" hidden></p>
+      <div class="crow" id="whereRow"><span>Where</span><b id="cWhere"></b></div>
+      <div class="crow crow-stack" id="whereStack" hidden>
+        <p class="virtual-intro" id="virtualIntro"></p>
+        <b id="cWhereLink"></b>
+      </div>
       <div class="crow"><span>This is a</span><b id="cKind"></b></div>
       <div class="crow"><span>Confirmation sent to</span><b id="cEmail"></b></div>
     </div>
@@ -755,20 +761,25 @@ function renderConfirm(){
   // created — so the page never has to know the link ahead of time.
   var where = B.location ||
     (B.mode === "virtual" ? "Video link, sent before we meet" : CONFIG.practice.address);
-  var cw = $("cWhere");
-  cw.textContent = "";
-  if (/^https?:\/\//.test(where)) {
-    // Show the URL itself, not a "Join link" label — people screenshot this
-    // page or read it back later and need to recognise the address.
+  // A URL needs room and a sentence around it; an address doesn't. Two layouts.
+  var isLink = /^https?:\/\//.test(where);
+  var intro = CONFIG.practice.virtualIntro;
+  $("whereRow").hidden = isLink;
+  $("whereStack").hidden = !isLink;
+
+  if (isLink) {
+    $("virtualIntro").textContent = intro || "Where";
+    var host = $("cWhereLink");
+    host.textContent = "";
+    // Show the address itself, not a "Join link" label — people screenshot
+    // this and need to recognise it later.
     var a = document.createElement("a");
     a.href = where;
     a.textContent = where.replace(/^https?:\/\//, "");
     a.target = "_blank"; a.rel = "noopener";
-    a.style.color = "#F2F3ED"; a.style.textDecoration = "underline";
-    a.style.wordBreak = "break-all";
-    cw.appendChild(a);
+    host.appendChild(a);
   } else {
-    cw.textContent = where;
+    $("cWhere").textContent = where;
   }
   $("cKind").textContent  = B.kind === "reschedule" ? "Rescheduled session" : "New session";
   $("cEmail").textContent = B.email;
@@ -811,13 +822,6 @@ function renderConfirm(){
   var u = calUrls();
   $("cGoogle").href = u.google;
   $("cOutlook").href = u.outlook;
-
-  // Friendly line for virtual, so the link has some context around it.
-  var vi = $("virtualIntro");
-  if (B.mode === "virtual" && B.location && CONFIG.practice.virtualIntro){
-    vi.textContent = CONFIG.practice.virtualIntro;
-    vi.hidden = false;
-  } else { vi.hidden = true; }
 
   $("cNext").textContent = B.invited
     ? "That time is now held on my calendar, and a calendar invitation is on its way to you. I'll follow up by email to confirm — if it turns out not to work, just reply and we'll move it."

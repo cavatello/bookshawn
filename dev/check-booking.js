@@ -14,6 +14,9 @@
 
 const BASE = (process.argv[2] || "").replace(/\/+$/, "");
 const EMAIL = process.argv[3];
+// "virtual" or "inperson" (default). Virtual is the one that proves what
+// VIRTUAL_LOCATION is actually set to — Meet, Zoom, or nothing.
+const MODE = String(process.argv[4] || "inperson").toLowerCase() === "virtual" ? "virtual" : "inperson";
 const TZ = "America/Los_Angeles";
 
 const g = (s) => `\x1b[32m${s}\x1b[0m`;
@@ -24,7 +27,7 @@ const ok = (m) => console.log(`  ${g("PASS")}  ${m}`);
 const bad = (m, d) => { failed++; console.log(`  ${r("FAIL")}  ${m}`); if (d) console.log(dim("        " + d)); };
 
 if (!BASE || !EMAIL || !EMAIL.includes("@")) {
-  console.log("\nUsage: node dev/check-booking.js https://agp-cal.<sub>.workers.dev you@example.com\n");
+  console.log("\nUsage: node dev/check-booking.js https://agp-cal.<sub>.workers.dev you@example.com [virtual|inperson]\n");
   console.log(dim("  Use an inbox you can actually read — the point is to confirm the email arrives.\n"));
   process.exit(1);
 }
@@ -67,26 +70,33 @@ const post = async (body) => {
   }
   const free = (s, e) => !busy.some(([bs, be]) => s < be && e > bs);
 
+  // Mirrors AVAILABILITY: [weekday, firstHour, lastStartHour].
+  const WINDOWS = MODE === "virtual"
+    ? [["Mon", 8, 8], ["Tue", 8, 8], ["Tue", 11, 12], ["Wed", 15, 17], ["Fri", 8, 8]]
+    : [["Tue", 14, 20], ["Wed", 7, 13], ["Thu", 7, 13], ["Fri", 14, 19]];
+
   let slot = null;
   for (let n = 2; n <= 20 && !slot; n++) {
     const day = new Date(Date.now() + n * 86400000);
     const p = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" });
     const o = {}; p.formatToParts(day).forEach((x) => (o[x.type] = x.value));
-    if (o.weekday !== "Wed") continue;
-    for (let h = 7; h <= 13 && !slot; h++) {
-      const s = wall(+o.year, +o.month, +o.day, h);
-      const e = s + 53 * 60000;
-      if (s > Date.now() + 26 * 3600000 && free(s, s + 60 * 60000)) slot = { s, e };
+    for (const [dow, from, to] of WINDOWS) {
+      if (o.weekday !== dow || slot) continue;
+      for (let h = from; h <= to && !slot; h++) {
+        const s = wall(+o.year, +o.month, +o.day, h);
+        const e = s + 53 * 60000;
+        if (s > Date.now() + 26 * 3600000 && free(s, s + 60 * 60000)) slot = { s, e };
+      }
     }
   }
-  if (!slot) { bad("no free Wednesday in-person slot in the next 20 days", "Try again when you have an opening, or book manually from the page."); process.exit(1); }
+  if (!slot) { bad(`no free ${MODE} slot in the next 20 days`, "Try again when you have an opening, or book manually from the page."); process.exit(1); }
 
   const fmt = (t) => new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(t));
-  console.log(dim(`\n  Booking ${fmt(slot.s)} Pacific\n`));
+  console.log(dim(`\n  Booking a ${MODE === "virtual" ? "VIRTUAL" : "IN-PERSON"} session, ${fmt(slot.s)} Pacific\n`));
 
   const req = {
     start: new Date(slot.s).toISOString(), end: new Date(slot.e).toISOString(),
-    mode: "inperson", name: "Booking test — delete me", email: EMAIL,
+    mode: MODE, name: "Booking test — delete me", email: EMAIL,
     notes: "Automated test from check-booking.js", kind: "new", viewerTz: TZ,
   };
 
@@ -101,6 +111,26 @@ const post = async (body) => {
 
   if (j.htmlLink) ok("event created — link below");
   else bad("no event link returned");
+
+  // What location did the Worker attach? This is what the client sees in the
+  // invite, and the only way to confirm VIRTUAL_LOCATION actually deployed.
+  const loc = j.location || "";
+  console.log(dim(`\n        location: ${loc || "(none)"}\n`));
+  if (!loc) {
+    bad("Worker attached no location",
+      MODE === "virtual"
+        ? "VIRTUAL_LOCATION is empty. Set it in wrangler.toml and redeploy."
+        : "OFFICE_ADDRESS is empty. Set it in wrangler.toml and redeploy.");
+  } else if (MODE === "virtual") {
+    if (/zoom\.us/i.test(loc)) ok("virtual sessions use your Zoom room");
+    else if (/meet\.google\.com/i.test(loc))
+      bad("still handing out Google Meet links",
+        'VIRTUAL_LOCATION is still "meet". Set your Zoom URL, then: npx wrangler deploy');
+    else ok(`virtual location set to ${loc}`);
+  } else {
+    if (/Lytton/i.test(loc)) ok("in-person sessions carry the office address");
+    else ok(`in-person location set to ${loc}`);
+  }
 
   // Guards
   console.log("\n  Guards:");

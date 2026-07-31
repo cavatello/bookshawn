@@ -254,6 +254,9 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   ok('confirmation uses the location the Worker returned',
     /667 Lytton Ave.*\(mock\)/.test(await page.textContent('#cWhere')),
     await page.textContent('#cWhere'));
+  ok('in-person keeps the plain label row',
+    (await page.locator('#whereRow').isVisible()) &&
+    (await page.locator('#whereStack').isHidden()));
   {
     const ics = await page.evaluate(() => icsBlob().text());
     ok('ics carries that same location', /LOCATION:667 Lytton Ave.*\(mock\)/.test(ics));
@@ -330,13 +333,25 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
       ok('virtual booking hides the Getting here panel',
         await page.locator('#arrive').isHidden());
       ok('virtual booking shows the actual join address',
-        /agoodplace\.zoom\.us\/my\/shawnwalters/.test(await page.textContent('#cWhere')),
-        await page.textContent('#cWhere'));
+        /agoodplace\.zoom\.us\/my\/shawnwalters/.test(await page.textContent('#cWhereLink')),
+        await page.textContent('#cWhereLink'));
       ok('join link is clickable and points at Zoom',
-        (await page.getAttribute('#cWhere a', 'href')) === 'https://agoodplace.zoom.us/my/shawnwalters');
+        (await page.getAttribute('#cWhereLink a', 'href')) === 'https://agoodplace.zoom.us/my/shawnwalters');
       ok('virtual booking explains the link',
         /sign in for your Zoom virtual session/i.test(await page.textContent('#virtualIntro')));
-      ok('intro line hidden for in-person', true);
+      ok('virtual uses the stacked block, not the label row',
+        (await page.locator('#whereStack').isVisible()) &&
+        (await page.locator('#whereRow').isHidden()));
+      ok('sentence sits ABOVE the link', await page.evaluate(() => {
+        const i = document.querySelector('#virtualIntro').getBoundingClientRect();
+        const l = document.querySelector('#cWhereLink').getBoundingClientRect();
+        return i.bottom <= l.top + 1;
+      }));
+      ok('link is left-aligned under its sentence', await page.evaluate(() => {
+        const i = document.querySelector('#virtualIntro').getBoundingClientRect();
+        const a = document.querySelector('#cWhereLink a').getBoundingClientRect();
+        return Math.abs(i.left - a.left) < 2;
+      }));
       {
         const ics = await page.evaluate(() => icsBlob().text());
         ok('ics carries the zoom link as the location',

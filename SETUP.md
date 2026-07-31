@@ -551,7 +551,17 @@ and push by hand if you'd rather batch.
 including the invite email:
 
 ```bash
-node dev/check-booking.js https://agp-cal.cavatello.workers.dev you@example.com
+node dev/check-booking.js https://agp-cal.cavatello.workers.dev you@example.com virtual
+```
+
+The third argument picks the session type — `virtual` or `inperson` (default).
+**Use `virtual` after changing `VIRTUAL_LOCATION`**: it's the only check that
+reveals what the Worker actually attaches as the meeting location, and it names
+the problem if you're still getting Meet links.
+
+```
+location: https://agoodplace.zoom.us/my/shawnwalters
+PASS  virtual sessions use your Zoom room
 ```
 
 It books a real slot on your real calendar, then tries three things that must be
