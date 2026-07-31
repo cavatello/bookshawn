@@ -189,6 +189,41 @@ const ok = (n, c, extra) => {
     }
   }
 
+  console.log('\n[6d] Directions block');
+  {
+    const dt = await page.innerText('#dir');
+    ok('shows the address', /667 Lytton Ave, Suite 9, Palo Alto/.test(dt), dt.slice(0, 60));
+    ok('lists all five arrival notes',
+      (await page.locator('#dir li').count()) === 5,
+      String(await page.locator('#dir li').count()));
+    ok('address is bold', (await page.locator('#dir b').count()) >= 1);
+    const hrefs = await page.evaluate(() => [...document.querySelectorAll('#dir a')].map(a => a.href));
+    ok('links to Google Maps', hrefs.some(h => /google\.com\/maps\/search/.test(h)), hrefs.join(' '));
+    ok('links to Apple Maps', hrefs.some(h => /maps\.apple\.com/.test(h)));
+    ok('phone is a tel: link', hrefs.some(h => h === 'tel:9715142190'), hrefs.join(' '));
+    ok('map links carry the office address',
+      hrefs.filter(h => /maps/.test(h)).every(h => /667%20Lytton/.test(h)));
+
+    await page.click('#copyDir'); await page.waitForTimeout(500);
+    ok('copy button confirms', /Copied/.test(await page.textContent('#copyDir')));
+    const fl = await page.evaluate(async () => {
+      const items = await navigator.clipboard.read();
+      const h = await (await items.find(i => i.types.includes('text/html')).getType('text/html')).text();
+      const t = await (await items.find(i => i.types.includes('text/plain')).getType('text/plain')).text();
+      return { h, t };
+    });
+    ok('html flavour keeps the map links as links',
+      /<a href="https:\/\/www\.google\.com\/maps/.test(fl.h) &&
+      /<a href="https:\/\/maps\.apple\.com/.test(fl.h), fl.h.slice(0, 120));
+    ok('html flavour keeps the bullet list', /<ul>/.test(fl.h) && /<li>/.test(fl.h));
+    ok('plain flavour has no markup, but keeps the urls',
+      !/<[a-z]/i.test(fl.t) &&
+      /Google Maps: https:\/\//.test(fl.t) &&
+      /Apple Maps:  https:\/\//.test(fl.t), fl.t.slice(0, 120));
+    ok('plain flavour uses dashes for the notes', /\n- Look for a red-shingled/.test(fl.t));
+    ok('plain flavour ends with the phone number', /971-514-2190\.$/.test(fl.t.trim()));
+  }
+
   console.log('\n[7] Busy subtraction');
   const before = await page.locator('.d .c').count();
   const firstSlot = await page.evaluate(() => {

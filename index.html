@@ -213,7 +213,18 @@
     border:none; background:var(--ink); color:#fff; font-size:13.5px; font-weight:600; cursor:pointer;}
   .cta:hover{background:#2C3029;}
   .cta:disabled{opacity:.5; cursor:default;}
-  .privacy{font-size:11.5px; color:var(--muted-2); line-height:1.55; margin:11px 0 0;}
+
+  /* The moment of commitment. Full width so there's no hunting for it, and
+     tall enough to be an obvious target rather than one control among several. */
+  .cta-submit{width:100%; justify-content:center; min-height:54px; font-size:16px;
+    border-radius:11px; margin:0 0 10px; letter-spacing:-.005em;}
+  .cta-submit:hover{background:#2C3029; transform:translateY(-1px);}
+  .cta-submit:active{transform:none;}
+  @media (prefers-reduced-motion:reduce){ .cta-submit:hover{transform:none;} }
+  /* Reassurance sits above the button, where hesitation actually happens. */
+  .reassure{font-size:13.5px; line-height:1.6; color:var(--muted); margin:4px 0 12px;}
+  .reassure b{color:var(--ink); font-weight:600;}
+  .privacy{font-size:11.5px; color:var(--muted-2); line-height:1.55; margin:0;}
   .result{margin-top:12px; padding:11px 14px; border-radius:9px; font-size:13px; line-height:1.55;}
   .result.ok{background:var(--sage-soft); border:1px solid var(--sage-line); color:#4A6141;}
   .result.err{background:var(--neg-soft); border:1px solid #DEC4BE; color:#7E3A2F;}
@@ -322,8 +333,9 @@
         </div>
       </div>
       <div class="field"><label for="bNote">Anything I should know before we meet? (optional)</label><textarea id="bNote"></textarea></div>
-      <button class="cta" id="bSubmit">Request this time</button>
-      <p class="privacy">This sends a request, not a confirmation — I'll reply by email to confirm. Please don't include clinical details here; this form isn't a secure channel for health information.</p>
+      <p class="reassure" id="bReassure"></p>
+      <button class="cta cta-submit" id="bSubmit">Request this time</button>
+      <p class="privacy">Nothing is charged now, and this isn't a secure channel for health information &mdash; please keep clinical detail out of the box above.</p>
       <div class="result" id="bResult" hidden></div>
     </div>
   </div>
@@ -739,6 +751,18 @@ function renderBook(){
               tzShort(CONFIG.practiceTz, s.start) + " for me.";
   }
   $("bookTz").textContent = tzLine;
+
+  // Name what happens next, in plain terms, immediately before the button.
+  // The commonest reason someone stalls here is not knowing what they're
+  // committing to — not needing another nudge.
+  var re = $("bReassure");
+  re.innerHTML = "";
+  re.appendChild(document.createTextNode("This is a request, not a booking — "));
+  var b = document.createElement("b");
+  b.textContent = "I'll email you to confirm";
+  re.appendChild(b);
+  re.appendChild(document.createTextNode(
+    ", usually the same day. If the time stops working, just reply and we'll move it."));
 }
 
 function renderConfirm(){

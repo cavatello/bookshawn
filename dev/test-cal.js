@@ -226,6 +226,42 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   ok('booking panel opens', !(await page.locator('#book').isHidden()));
   ok('booking panel names the session type', /In person/.test(await page.textContent('#bookWhen')));
 
+  // The submit button is the whole point of the page; it should dominate its
+  // panel rather than sit level with the chips above it.
+  {
+    const m = await page.evaluate(() => {
+      const b  = document.querySelector('#bSubmit').getBoundingClientRect();
+      const wr = document.querySelector('#slotwrap').getBoundingClientRect();
+      const chip = document.querySelector('#bKind .chip').getBoundingClientRect();
+      const re = document.querySelector('#bReassure').getBoundingClientRect();
+      const cs = getComputedStyle(document.querySelector('#bSubmit'));
+      return { bw: Math.round(b.width), bh: Math.round(b.height),
+               inner: Math.round(wr.width), chipArea: Math.round(chip.width*chip.height),
+               btnArea: Math.round(b.width*b.height),
+               fs: parseFloat(cs.fontSize),
+               reAbove: re.bottom <= b.top + 1 };
+    });
+    ok('submit spans the panel width', m.bw >= m.inner - 60, `${m.bw} vs ${m.inner}`);
+    ok('submit is a large target', m.bh >= 50, `${m.bh}px tall`);
+    ok('submit type is larger than the form labels', m.fs >= 16, `${m.fs}px`);
+    ok('submit outweighs the chips beside it',
+      m.btnArea > m.chipArea * 3, `${m.btnArea} vs ${m.chipArea}`);
+    ok('reassurance sits above the button, not below', m.reAbove);
+    const reText = (await page.textContent('#bReassure')) || '';
+    ok('reassurance says what happens next',
+      /request, not a booking/i.test(reText) && /email you to confirm/i.test(reText),
+      reText.slice(0, 70));
+    ok('no manufactured urgency', !/only|hurry|last chance|running out|act now|\bfast\b/i
+      .test(await page.textContent('#slotwrap')));
+    // The PHI warning must survive any copy rewrite. Match loosely so a
+    // reworded sentence still passes, but its absence still fails.
+    ok('still warns this is not a secure channel',
+      /secure channel/i.test(await page.textContent('.privacy')),
+      await page.textContent('.privacy'));
+    ok('still asks people to keep clinical detail out',
+      /clinical detail/i.test(await page.textContent('.privacy')));
+  }
+
   // validation
   await page.click('#bSubmit');
   await page.waitForTimeout(120);

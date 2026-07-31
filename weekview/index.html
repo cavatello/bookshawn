@@ -80,6 +80,13 @@
     background:var(--card); min-height:200px; white-space:pre-wrap;}
   #txt:focus{outline:none;}
   #txt b{font-weight:700; color:#2A3A28;}
+  #dir{padding:18px 20px; font-size:14px; line-height:1.7; color:var(--ink);
+    background:var(--card);}
+  #dir:focus{outline:none;}
+  #dir b{font-weight:700; color:#2A3A28;}
+  #dir a{color:#4A6141;}
+  #dir ul{margin:10px 0; padding-left:20px;}
+  #dir li{margin:0 0 7px;}
   #txt .day{font-weight:600;}
   #txt .foot{color:var(--muted); font-size:13px;}
 
@@ -125,6 +132,15 @@
          aria-label="Availability text to copy — editable"></div>
   </div>
 
+  <div class="out" style="margin-top:22px">
+    <div class="out-h">
+      <div><h2>Directions, for an email</h2><p>Address, map links and arrival notes</p></div>
+      <button class="copy" id="copyDir">Copy</button>
+    </div>
+    <div id="dir" contenteditable="true" spellcheck="false" role="textbox" aria-multiline="true"
+         aria-label="Directions text to copy — editable"></div>
+  </div>
+
   <div class="note" id="note"><span class="dot"></span><span id="noteText">Checking your calendar…</span></div>
 </div>
 
@@ -157,6 +173,20 @@ var AVAILABILITY = {
   ]
 };
 var LABEL = { virtual:"virtual", inperson:"in person" };
+
+// Kept in step with CONFIG.practice on the booking page. If you change the
+// arrival notes there, change them here too.
+var PRACTICE = {
+  address: "667 Lytton Ave, Suite 9, Palo Alto, CA 94301",
+  phone: "971-514-2190",
+  arrival: [
+    "Look for a red-shingled house with a covered front porch and brick pillars. The number 667 is above the porch.",
+    "There's no parking on the premises. Street parking is on Byron St, near the Byron and Lytton corner.",
+    "Bikes can be locked to the fence out front, or around the back if you'd rather.",
+    "Both the front and back doors are open. Come in and take a seat in the ground floor waiting room — there's no reception staff.",
+    "I'll come out and get you at the time of your appointment."
+  ]
+};
 var TITLE = { virtual:"Virtual", inperson:"In person" };
 
 /* ---- timezone helpers: template is wall clock, everything else is an instant ---- */
@@ -185,7 +215,7 @@ function fmtTime(ts){ return new Intl.DateTimeFormat("en-US",{ timeZone:TZ, hour
 function fmtDay(ts){ return new Intl.DateTimeFormat("en-US",{ timeZone:TZ, weekday:"short", month:"short", day:"numeric" }).format(new Date(ts)); }
 
 /* ---- state ---- */
-var state = { filter:"both", busy:[], status:"loading", fetchedAt:null, plain:"" };
+var state = { filter:"both", busy:[], status:"loading", fetchedAt:null, plain:"", dirPlain:"" };
 
 /* Sunday of the current week, in practice-local time. */
 function weekStart(){
@@ -393,10 +423,60 @@ function renderNote(){
   }
 }
 
+/* Directions in both flavours. The map links only survive as links if the
+   clipboard carries HTML — plain text keeps the raw URLs so nothing is lost. */
+function buildDirections(){
+  var P = PRACTICE;
+  var q = encodeURIComponent(P.address);
+  var gmap = "https://www.google.com/maps/search/?api=1&query=" + q;
+  var amap = "https://maps.apple.com/?q=" + q;
+  var tel  = P.phone.replace(/[^0-9+]/g, "");
+
+  $("dir").innerHTML =
+    '<div><b>' + esc(P.address) + '</b></div>' +
+    '<div><a href="' + gmap + '">Open in Google Maps</a> &nbsp;&middot;&nbsp; ' +
+    '<a href="' + amap + '">Apple Maps</a></div>' +
+    '<ul>' + P.arrival.map(function(l){ return '<li>' + esc(l) + '</li>'; }).join("") + '</ul>' +
+    '<div>Any questions before you come, email me or text ' +
+    '<a href="tel:' + tel + '">' + esc(P.phone) + '</a>.</div>';
+
+  state.dirPlain =
+    P.address + "\n\n" +
+    "Google Maps: " + gmap + "\n" +
+    "Apple Maps:  " + amap + "\n\n" +
+    P.arrival.map(function(l){ return "- " + l; }).join("\n") + "\n\n" +
+    "Any questions before you come, email me or text " + P.phone + ".";
+}
+
 /* ---- wiring ---- */
 document.querySelectorAll(".f").forEach(function(b){
   b.onclick = function(){ state.filter = b.dataset.f; render(); };
 });
+
+function copyRich(el, plain, btn){
+  var done = function(){
+    btn.textContent = "Copied"; btn.classList.add("done");
+    setTimeout(function(){ btn.textContent = "Copy"; btn.classList.remove("done"); }, 1600);
+  };
+  var htmlOut = '<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:14px;line-height:1.6">' +
+                el.innerHTML + '</div>';
+  if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+    navigator.clipboard.write([new ClipboardItem({
+      "text/html":  new Blob([htmlOut], { type:"text/html"  }),
+      "text/plain": new Blob([plain],   { type:"text/plain" })
+    })]).then(done, function(){ navigator.clipboard.writeText(plain).then(done); });
+  } else if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(plain).then(done);
+  } else {
+    var r = document.createRange(); r.selectNodeContents(el);
+    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    document.execCommand("copy"); sel.removeAllRanges(); done();
+  }
+}
+
+$("copyDir").onclick = function(){
+  copyRich($("dir"), state.dirPlain, $("copyDir"));
+};
 
 $("copy").onclick = function(){
   var el = $("txt"), btn = $("copy");
@@ -424,6 +504,7 @@ $("copy").onclick = function(){
   }
 };
 
+buildDirections();
 render();
 load();
 setInterval(load, CONFIG.refreshSecs * 1000);
