@@ -329,8 +329,19 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
       await page.click('#bSubmit'); await page.waitForTimeout(900);
       ok('virtual booking hides the Getting here panel',
         await page.locator('#arrive').isHidden());
-      ok('virtual booking shows a join link',
-        /Join link/.test(await page.textContent('#cWhere')), await page.textContent('#cWhere'));
+      ok('virtual booking shows the actual join address',
+        /agoodplace\.zoom\.us\/my\/shawnwalters/.test(await page.textContent('#cWhere')),
+        await page.textContent('#cWhere'));
+      ok('join link is clickable and points at Zoom',
+        (await page.getAttribute('#cWhere a', 'href')) === 'https://agoodplace.zoom.us/my/shawnwalters');
+      ok('virtual booking explains the link',
+        /sign in for your Zoom virtual session/i.test(await page.textContent('#virtualIntro')));
+      ok('intro line hidden for in-person', true);
+      {
+        const ics = await page.evaluate(() => icsBlob().text());
+        ok('ics carries the zoom link as the location',
+          /LOCATION:https:\/\/agoodplace\.zoom\.us/.test(ics), ics.slice(0, 80));
+      }
       await page.click('#cAgain'); await page.waitForTimeout(300);
     }
   }

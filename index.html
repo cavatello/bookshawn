@@ -135,6 +135,8 @@
     border-bottom:1px solid #47603F; font-size:13.5px;}
   .crow span{color:#9DAB98;}
   .crow b{color:#E9EBE1; font-weight:500; text-align:right;}
+  .virtual-intro{font-size:12.5px; line-height:1.6; color:#9DAB98;
+    margin:10px 0 0; padding:0 0 4px;}
   .confirm-next{font-size:13.5px; line-height:1.65; color:#C4D2BD; margin:0 0 22px;}
   /* ===== Getting here (in-person only) ===== */
   .arrive{margin:0 0 24px; padding:20px 20px 22px; border-radius:12px;
@@ -333,6 +335,7 @@
     <div class="crows">
       <div class="crow"><span>Session type</span><b id="cMode"></b></div>
       <div class="crow"><span>Where</span><b id="cWhere"></b></div>
+      <p class="virtual-intro" id="virtualIntro" hidden></p>
       <div class="crow"><span>This is a</span><b id="cKind"></b></div>
       <div class="crow"><span>Confirmation sent to</span><b id="cEmail"></b></div>
     </div>
@@ -427,6 +430,9 @@ var CONFIG = {
     phone:      "971-514-2190",
     address:    "667 Lytton Ave, Suite 9, Palo Alto, CA 94301",
     addressShort: "667 Lytton Ave, Palo Alto",
+
+    // Sits above the join link on the confirmation for virtual sessions.
+    virtualIntro: "Clients, sign in for your Zoom virtual session here:",
 
     // Shown on the confirmation screen for in-person bookings only.
     // photo: drop a JPG in the repo (e.g. "office.jpg") and name it here.
@@ -752,9 +758,14 @@ function renderConfirm(){
   var cw = $("cWhere");
   cw.textContent = "";
   if (/^https?:\/\//.test(where)) {
+    // Show the URL itself, not a "Join link" label — people screenshot this
+    // page or read it back later and need to recognise the address.
     var a = document.createElement("a");
-    a.href = where; a.textContent = "Join link"; a.target = "_blank"; a.rel = "noopener";
-    a.style.color = "#C4D2BD"; a.style.textDecoration = "underline";
+    a.href = where;
+    a.textContent = where.replace(/^https?:\/\//, "");
+    a.target = "_blank"; a.rel = "noopener";
+    a.style.color = "#F2F3ED"; a.style.textDecoration = "underline";
+    a.style.wordBreak = "break-all";
     cw.appendChild(a);
   } else {
     cw.textContent = where;
@@ -800,6 +811,13 @@ function renderConfirm(){
   var u = calUrls();
   $("cGoogle").href = u.google;
   $("cOutlook").href = u.outlook;
+
+  // Friendly line for virtual, so the link has some context around it.
+  var vi = $("virtualIntro");
+  if (B.mode === "virtual" && B.location && CONFIG.practice.virtualIntro){
+    vi.textContent = CONFIG.practice.virtualIntro;
+    vi.hidden = false;
+  } else { vi.hidden = true; }
 
   $("cNext").textContent = B.invited
     ? "That time is now held on my calendar, and a calendar invitation is on its way to you. I'll follow up by email to confirm — if it turns out not to work, just reply and we'll move it."

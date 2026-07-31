@@ -28,7 +28,7 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { ...cors, 'content-type': 'application/json' });
       res.end(JSON.stringify({ ok: true, htmlLink: 'https://calendar.google.com/x', invited: true,
         location: LASTBOOK.mode === 'virtual'
-          ? 'https://meet.google.com/abc-defg-hij'
+          ? 'https://agoodplace.zoom.us/my/shawnwalters'
           : '667 Lytton Ave, Suite 9, Palo Alto, CA 94301 (mock)' }));
     });
   }

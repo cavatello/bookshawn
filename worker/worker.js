@@ -289,6 +289,8 @@ async function handleBook(body, env) {
       `Email: ${clean(email, 120)}\n` +
       `Their timezone: ${clean(viewerTz || "unknown", 60)}\n` +
       `Kind: ${kind === "reschedule" ? "Rescheduling an existing session" : "New session"}\n` +
+      (mode === "virtual" && locationFor(mode, env)
+        ? `\nJoin: ${locationFor(mode, env)}\n` : "") +
       (notes ? `\nNotes: ${clean(notes, 800)}\n` : "") +
       `\nUnconfirmed until you reply.`,
     start: { dateTime: new Date(s).toISOString(), timeZone: tz },

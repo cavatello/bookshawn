@@ -581,6 +581,21 @@ so a plain var is fine.
 | a URL | used as-is for every virtual session |
 | empty | invite says "video link to follow"; you send one yourself |
 
+### Your Zoom link is currently a public var
+
+`wrangler.toml` holds `VIRTUAL_LOCATION = "https://agoodplace.zoom.us/my/shawnwalters"`,
+and that file is committed to a public repo. Anyone can read it.
+
+**Whether that matters comes down to one Zoom setting.** With the waiting room on,
+someone with the link lands in a queue and can't enter until you admit them —
+annoying at worst. With it off, anyone holding the link can walk into a live
+session. For therapy that's a confidentiality breach, not an inconvenience.
+
+Check it: zoom.us → Settings → In Meeting (Advanced) → **Waiting Room: on**, and
+confirm it applies to your Personal Meeting Room specifically.
+
+If you'd rather the link never be public at all, move it to a secret — see below.
+
 ### Switching from Meet to Zoom
 
 **Don't put a Zoom link in `wrangler.toml`.** That file is committed to a public
