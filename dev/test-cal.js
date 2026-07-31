@@ -126,6 +126,8 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   ok('mode cards carry names and descriptions',
     /Virtual/.test(await page.textContent('.mode[data-mode="virtual"]')) &&
     /Secure video/.test(await page.textContent('.mode[data-mode="virtual"]')));
+  ok('session type names are bold', await page.evaluate(() =>
+    getComputedStyle(document.querySelector('.mode-name')).fontWeight >= 700));
   ok('in-person card shows the address',
     /667 Lytton Ave/.test(await page.textContent('.mode[data-mode="inperson"]')));
   ok('reschedule prompt present',
