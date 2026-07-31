@@ -17,6 +17,9 @@ bookshawn/
 ├── index.html          the booking page  ->  cavatello.github.io/bookshawn/
 ├── weekview/
 │   └── index.html      your two-week planner  ->  /bookshawn/weekview/
+├── virtual/
+│   └── index.html      video-only, extended  ->  /bookshawn/virtual/
+├── robots.txt          keeps all of it out of search
 ├── SETUP.md            this file (reference)
 ├── NEXT-STEPS.md       follow this one, top to bottom
 ├── worker/
@@ -828,3 +831,52 @@ To change it, edit both files, then:
 ```bash
 cd worker && npx wrangler deploy
 ```
+
+---
+
+## /virtual/ — extended video availability
+
+<https://cavatello.github.io/bookshawn/virtual/>
+
+Every hour you're working, offered as a video session — the union of both
+templates, not just the virtual windows. Currently that's **139 slots over four
+weeks against 31** on the main page's virtual option.
+
+Send it to someone who can only do video and needs more choice than the main page
+shows. There's no session-type picker, because there's nothing to choose.
+
+It books with `mode: "anyvirtual"`, which `worker.js` validates against the union
+of both templates. **That mode has to exist on both sides.** Without it the Worker
+rejects any in-person hour submitted as video, and the page looks fine right up
+until someone presses submit.
+
+Location, event title and the Meet/Zoom link all treat `anyvirtual` as video —
+only `inperson` gets the office address and the directions panel.
+
+If you change `AVAILABILITY`, it now lives in **four** places: `index.html`,
+`virtual/index.html`, `weekview/index.html` and `worker/worker.js`.
+
+---
+
+## Keeping all of it out of search
+
+Every page carries:
+
+```html
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+```
+
+and `robots.txt` disallows the whole site:
+
+```
+User-agent: *
+Disallow: /
+```
+
+Both together, because they do different jobs: `robots.txt` asks crawlers not to
+fetch, the meta tag tells them not to index what they did fetch. `noarchive`
+blocks cached copies, `nosnippet` blocks preview text.
+
+**This is not privacy.** Anyone with a URL can open any of these pages, and
+compliant crawlers are the only ones that honour the rules. Treat all three as
+unlisted, not private. None of them expose client names — only free time.

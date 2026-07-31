@@ -230,9 +230,18 @@ function tzParts(instant, tz) {
   return { y: +p.year, m: +p.month, d: +p.day, dow: dow[p.weekday] };
 }
 
+function windowsFor(mode) {
+  // "anyvirtual" = video in any hour Shawn is working, which is the union of
+  // both templates. Sent only by /virtual/. Without this the Worker would reject
+  // in-person hours submitted as video, and the page would look fine right up
+  // until someone pressed submit.
+  if (mode === "anyvirtual") return AVAILABILITY.virtual.concat(AVAILABILITY.inperson);
+  return AVAILABILITY[mode] || [];
+}
+
 function insideTemplate(startMs, endMs, mode, tz) {
   const p = tzParts(new Date(startMs), tz);
-  return (AVAILABILITY[mode] || []).some((w) => {
+  return windowsFor(mode).some((w) => {
     if (w.day !== p.dow) return false;
     const [sh, sm] = w.start.split(":").map(Number);
     const [eh, em] = w.end.split(":").map(Number);
@@ -250,7 +259,8 @@ function insideTemplate(startMs, endMs, mode, tz) {
 //                     or a Zoom URL. Set a Zoom URL as a SECRET, not a var —
 //                     wrangler.toml is committed to a public repo.
 function locationFor(mode, env) {
-  if (mode !== "virtual") return String(env.OFFICE_ADDRESS || "").trim();
+  // anyvirtual is a video session, so it gets the join link, not the address.
+  if (mode === "inperson") return String(env.OFFICE_ADDRESS || "").trim();
   const v = String(env.VIRTUAL_LOCATION || "").trim();
   if (!v || v.toLowerCase() === "meet") return "";   // Meet link is attached separately
   return v;
@@ -261,7 +271,7 @@ async function handleBook(body, env) {
   const tz = env.PRACTICE_TZ || "America/Los_Angeles";
 
   if (!start || !end || !mode) throw fail("Missing start, end or mode", 400);
-  if (!AVAILABILITY[mode]) throw fail("Unknown session type", 400);
+  if (!windowsFor(mode).length) throw fail("Unknown session type", 400);
   if (!name || !String(name).trim()) throw fail("Name is required", 400);
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw fail("A valid email is required", 400);
 
@@ -291,14 +301,14 @@ async function handleBook(body, env) {
 
   const event = {
     summary: `HOLD — ${kind === "reschedule" ? "RESCHEDULE" : "New"} · ` +
-             `${mode === "virtual" ? "Virtual" : "In person"} · ${clean(name, 60)}`,
+             `${mode === "inperson" ? "In person" : "Virtual"} · ${clean(name, 60)}`,
     description:
       `Requested via the website booking page.\n` +
       `Name: ${clean(name, 80)}\n` +
       `Email: ${clean(email, 120)}\n` +
       `Their timezone: ${clean(viewerTz || "unknown", 60)}\n` +
       `Kind: ${kind === "reschedule" ? "Rescheduling an existing session" : "New session"}\n` +
-      (mode === "virtual" && locationFor(mode, env)
+      (mode !== "inperson" && locationFor(mode, env)
         ? `\nJoin: ${locationFor(mode, env)}\n` : "") +
       (notes ? `\nNotes: ${clean(notes, 800)}\n` : "") +
       `\nUnconfirmed until you reply.`,
@@ -319,7 +329,7 @@ async function handleBook(body, env) {
 
   // Ask Google for a per-event Meet link. Unique each time, so there is no
   // standing URL that could leak.
-  const wantMeet = mode === "virtual" &&
+  const wantMeet = mode !== "inperson" &&
     String(env.VIRTUAL_LOCATION || "").trim().toLowerCase() === "meet";
   if (wantMeet) {
     event.conferenceData = {

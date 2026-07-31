@@ -1,0 +1,3 @@
+# This whole site is a private scheduling tool, not something to be found.
+User-agent: *
+Disallow: /

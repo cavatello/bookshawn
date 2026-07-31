@@ -27,9 +27,11 @@ const server = http.createServer((req, res) => {
       LASTBOOK = JSON.parse(b);
       res.writeHead(200, { ...cors, 'content-type': 'application/json' });
       res.end(JSON.stringify({ ok: true, htmlLink: 'https://calendar.google.com/x', invited: true,
-        location: LASTBOOK.mode === 'virtual'
-          ? 'https://agoodplace.zoom.us/my/shawnwalters'
-          : '667 Lytton Ave, Suite 9, Palo Alto, CA 94301 (mock)' }));
+        // Mirrors locationFor() in worker.js: anything that isn't in-person is
+        // a video session and gets the join link.
+        location: LASTBOOK.mode === 'inperson'
+          ? '667 Lytton Ave, Suite 9, Palo Alto, CA 94301 (mock)'
+          : 'https://agoodplace.zoom.us/my/shawnwalters' }));
     });
   }
   if (u.pathname === '/api/fail') {
@@ -49,6 +51,13 @@ const server = http.createServer((req, res) => {
   // the never-configured path without the page firing a real cross-origin
   // request at the deployed Worker (which logs a CORS error and muddies test 1).
   // weekview points at the live Worker; blank it for tests the same way.
+  if (u.pathname === '/virtual/blank' || u.pathname === '/virtual/blank/') {
+    let h = fs.readFileSync(path.join(ROOT, 'virtual', 'index.html'), 'utf8');
+    h = h.replace(/apiBase:\s*"[^"]*"/, 'apiBase: "' + (process.env.MOCK_API || '/api') + '"');
+    res.writeHead(200, { 'content-type': 'text/html' });
+    return res.end(h);
+  }
+
   if (u.pathname === '/weekview/blank' || u.pathname === '/weekview/blank/') {
     let h = fs.readFileSync(path.join(ROOT, 'weekview', 'index.html'), 'utf8');
     h = h.replace(/apiBase:\s*"[^"]*"/, 'apiBase: "' + (process.env.MOCK_API || '/api') + '"');
@@ -66,7 +75,7 @@ const server = http.createServer((req, res) => {
   // /blank/ is a virtual path, so relative assets in the page resolve under it
   // (/blank/office.jpg). Fall those through to the real file at the root —
   // otherwise the harness 404s on images the live site serves fine.
-  let rel = u.pathname.replace(/^\/(weekview\/)?blank\//, '/');
+  let rel = u.pathname.replace(/^\/(weekview\/|virtual\/)?blank\//, '/');
 
   let p = path.join(ROOT, rel === '/' ? 'index.html' : rel);
   if (fs.existsSync(p) && fs.statSync(p).isDirectory()) p = path.join(p, 'index.html');
