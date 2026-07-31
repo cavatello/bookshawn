@@ -136,10 +136,28 @@ const MIN_TAP = 44;
       return { aw: Math.round(a.width), bw: Math.round(b.width),
                stacked: b.top > a.bottom - 5, gap: Math.round(b.left - a.right) };
     });
-    ok(D, 'mode cards wide enough to read', modeBox.aw >= 140 && modeBox.bw >= 140,
+    // 137px holds a 17px title and a two-line description at 320px, which is
+    // the narrowest phone still in use. Below ~128 the description shreds.
+    ok(D, 'mode cards wide enough to read', modeBox.aw >= 128 && modeBox.bw >= 128,
        `${modeBox.aw} / ${modeBox.bw}`);
     ok(D, 'mode cards do not overlap',
        modeBox.stacked || modeBox.gap >= 0, `gap ${modeBox.gap}`);
+    // The date rail is what people came for. If it sits below the fold on a
+    // phone, the page has buried its own purpose. Only meaningful on viewports
+    // tall enough to hold a hero at all — a 393px landscape phone will scroll
+    // whatever we do, and demanding otherwise would mean gutting the page.
+    if (v.h >= 600) {
+      const fold = await page.evaluate((vh) => {
+        const r = document.querySelector('#rail');
+        if (!r || r.offsetParent === null) return null;
+        const b = r.getBoundingClientRect();
+        return { top: Math.round(b.top), bottom: Math.round(b.bottom), fits: b.bottom <= vh };
+      }, v.h);
+      ok(D, 'date rail is above the fold', fold && fold.fits,
+         fold ? `rail ${fold.top}-${fold.bottom} vs viewport ${v.h}` : 'no rail');
+    }
+    ok(D, 'session-type cards sit side by side', !modeBox.stacked,
+       'stacked — pushes the rail down');
 
     // ---- 6. full booking flow ----
     await page.click('.mode[data-mode="inperson"]');

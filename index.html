@@ -82,8 +82,11 @@
   .mode[aria-pressed="true"] .mode-name{color:#F2F3ED;}
   .mode[aria-pressed="true"] .mode-desc{color:#C4D2BD;}
   .mode[aria-pressed="true"] .mode-ico{color:#C4D2BD;}
-  .mode-note{font-size:13.5px; line-height:1.6; color:var(--muted); margin:16px 0 0;
-    padding:13px 16px; background:var(--sage-soft); border:1px solid var(--sage-line);
+  /* Lives near the footer now — reassurance once they've looked, not an
+     instruction before they choose. The actual new/reschedule field is in the
+     booking form where the decision is made. */
+  .mode-note{font-size:13.5px; line-height:1.65; color:var(--muted); margin:34px 0 0;
+    padding:16px 18px; background:var(--sage-soft); border:1px solid var(--sage-line);
     border-radius:10px;}
   .mode-note b{color:#4A6141; font-weight:600;}
   @media (prefers-reduced-motion:reduce){.mode:hover{transform:none;}}
@@ -232,9 +235,24 @@
     .wrap,.masthead,.sitefoot{padding-left:18px; padding-right:18px;}
     .rail{grid-template-columns:repeat(4,1fr);}
     .slotwrap{padding:16px;}
-    .modes{grid-template-columns:1fr;}
-    .hero{flex-direction:column-reverse; align-items:flex-start; gap:22px;}
-    .hero-art{width:150px;}
+    /* Keep the two cards side by side. Stacked they pushed the date rail below
+       the fold on every iPhone, which buries the thing people came to do. */
+    .modes{grid-template-columns:1fr 1fr; gap:10px;}
+    .mode{padding:14px 13px 16px; gap:6px;}
+    .mode-top{gap:8px;}
+    .mode-ico{width:20px; height:20px;}
+    .mode-name{font-size:17px;}
+    .mode-desc{font-size:12.5px; line-height:1.4;}
+    /* Art beside the headline rather than stacked above it. */
+    .hero{flex-direction:row; align-items:center; gap:16px; padding:22px 0 18px;}
+    .hero-art{width:104px;}
+    .hero h1{font-size:clamp(26px,7.4vw,34px); margin:0 0 10px;}
+    .hero-dek{font-size:15px; line-height:1.55;}
+    .hero-eyebrow{margin-bottom:8px;}
+  }
+  @media (max-width:380px){
+    .hero-art{width:86px;}
+    .mode-desc{font-size:12px;}
   }
 </style>
 </head>
@@ -271,7 +289,6 @@
       <span class="mode-desc" id="modeAddr"></span>
     </button>
   </div>
-  <p class="mode-note" id="modeNote"><b>New here, or rescheduling?</b> Either is welcome &mdash; just tell me which when you pick a time, so I know whether we've met before.</p>
 
   <div class="railhead" id="railhead">
     <h2 id="railLabel">Next 7 days</h2>
@@ -348,6 +365,8 @@
     <p class="notlive-m" id="notliveMsg"></p>
     <a class="cta" href="mailto:shawn@agoodplacetherapy.com?subject=Session%20enquiry">Email me</a>
   </div>
+
+  <p class="mode-note" id="modeNote"><b>New here, or rescheduling?</b> Either is welcome &mdash; just tell me which when you pick a time, so I know whether we've met before.</p>
 
   <div class="status" id="status" role="status" aria-live="polite">
     <span class="dot"></span><span id="statusText">Checking my calendar…</span>
