@@ -284,6 +284,10 @@ function load(){
       if (gen !== loadGen) return;
       state.busy = (j.busy||[]).map(function(b){ return { start:Date.parse(b.start), end:Date.parse(b.end) }; })
                                .filter(function(b){ return b.start && b.end; });
+      // Template comes from the Worker so /admin/ edits reach every page.
+      if (j.availability && j.availability.virtual && j.availability.inperson){
+        AVAILABILITY = j.availability;
+      }
       state.status = "live"; state.fetchedAt = Date.now();
     })
     .catch(function(){

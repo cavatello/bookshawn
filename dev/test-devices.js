@@ -197,7 +197,7 @@ const MIN_TAP = 44;
           ok(D, 'inputs >=16px (no iOS zoom-on-focus)', inputFs >= 16, inputFs + 'px');
         }
 
-        await page.fill('#bName', 'Test Person');
+        await page.fill('#bName', 'SW');
         await page.fill('#bEmail', 'test@example.com');
         await page.click('#bSubmit');
         await page.waitForTimeout(900);

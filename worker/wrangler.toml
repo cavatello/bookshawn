@@ -38,3 +38,15 @@ SEND_INVITES   = "true"
 #   npx wrangler secret put GOOGLE_CLIENT_ID
 #   npx wrangler secret put GOOGLE_CLIENT_SECRET
 #   npx wrangler secret put GOOGLE_REFRESH_TOKEN
+
+# Storage for the weekly template, so /admin/ can change it without a deploy.
+# Create it once, then paste the id it prints:
+#   npx wrangler kv namespace create SETTINGS
+# Until this is set the Worker falls back to the template baked into worker.js.
+[[kv_namespaces]]
+binding = "SETTINGS"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# The admin password. NOT a var — set it as a secret so it never enters the repo:
+#   npx wrangler secret put ADMIN_TOKEN
+# With no token set, /admin/ is locked and writes are refused.

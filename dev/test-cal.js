@@ -287,13 +287,12 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
       const b  = document.querySelector('#bSubmit').getBoundingClientRect();
       const wr = document.querySelector('#slotwrap').getBoundingClientRect();
 
-      const re = document.querySelector('#bReassure').getBoundingClientRect();
       const cs = getComputedStyle(document.querySelector('#bSubmit'));
       return { bw: Math.round(b.width), bh: Math.round(b.height),
                inner: Math.round(wr.width),
                btnArea: Math.round(b.width*b.height),
                fs: parseFloat(cs.fontSize),
-               reAbove: re.bottom <= b.top + 1 };
+               ok: true };
     });
     ok('submit spans the panel width', m.bw >= m.inner - 60, `${m.bw} vs ${m.inner}`);
     ok('submit is a large target', m.bh >= 50, `${m.bh}px tall`);
@@ -301,20 +300,29 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
     // Nothing else in the panel should read as an action.
     ok('submit is the only button in the form', await page.evaluate(() =>
       [...document.querySelectorAll('#book button')].filter(b => b.offsetParent).length === 1));
-    ok('reassurance sits above the button, not below', m.reAbove);
-    const reText = (await page.textContent('#bReassure')) || '';
-    ok('reassurance says what happens next',
-      /request, not a booking/i.test(reText) && /email you to confirm/i.test(reText),
-      reText.slice(0, 70));
-    ok('no manufactured urgency', !/only|hurry|last chance|running out|act now|\bfast\b/i
-      .test(await page.textContent('#slotwrap')));
-    // The PHI warning must survive any copy rewrite. Match loosely so a
-    // reworded sentence still passes, but its absence still fails.
-    ok('still warns this is not a secure channel',
-      /secure channel/i.test(await page.textContent('.privacy')),
-      await page.textContent('.privacy'));
-    ok('still asks people to keep clinical detail out',
-      /clinical detail/i.test(await page.textContent('.privacy')));
+    // No free-text field means there is nowhere to type a symptom. This is the
+    // privacy property, not a style choice — it must not regress.
+    ok('form has no free-text box', await page.evaluate(() =>
+      document.querySelectorAll('#book textarea').length === 0));
+    ok('form collects exactly two fields', await page.evaluate(() =>
+      [...document.querySelectorAll('#book input')].filter(i => i.offsetParent).length === 2));
+    ok('second field is an email input',
+      (await page.getAttribute('#bEmail', 'type')) === 'email');
+    ok('form asks for initials only',
+      /initials/i.test(await page.textContent('label[for="bName"]')),
+      await page.textContent('label[for="bName"]'));
+    ok('name field is capped short', await page.evaluate(() =>
+      Number(document.querySelector('#bName').maxLength) <= 6));
+    // Word-boundary phrases only. Bare "only" matched the "Initials only"
+    // field label, which is an instruction, not pressure.
+    ok('no manufactured urgency',
+      !/\bhurry\b|last chance|running out|act now|\bonly \d|\d+ (?:spots?|slots?) left|book now/i
+        .test(await page.textContent('#slotwrap')),
+      (await page.textContent('#slotwrap')).slice(0, 80));
+    // The footer still has to carry the not-a-secure-channel warning even
+    // though the inline one under the button was removed.
+    ok('footer still warns this is not a secure channel',
+      /secure channel/i.test(await page.textContent('.sitefoot')));
   }
 
   // validation
@@ -322,7 +330,7 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   await page.waitForTimeout(120);
   ok('rejects empty form', /valid email/i.test(await page.textContent('#bResult')));
 
-  await page.fill('#bName', 'Test Client');
+  await page.fill('#bName', 'SW');
   await page.fill('#bEmail', 'test@example.com');
   await page.click('#bSubmit');
   await page.waitForTimeout(700);
@@ -493,7 +501,7 @@ function ok(n, c, extra) { if (c) { pass++; console.log('  PASS  ' + n); } else 
   ok('POST duration is exactly 53 min',
     Math.round((Date.parse(booked.end) - Date.parse(booked.start)) / 60000) === 53);
   ok('POST carries mode', booked.mode === 'inperson');
-  ok('POST carries name/email', booked.name === 'Test Client' && booked.email === 'test@example.com');
+  ok('POST carries name/email', booked.name === 'SW' && booked.email === 'test@example.com');
 
   // ---------- 5. API FAILURE DEGRADES HONESTLY ----------
   console.log('\n[5] Backend down');

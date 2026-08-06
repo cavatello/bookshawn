@@ -28,7 +28,11 @@ const SESSION_MINUTES = 53;
 /* ---------- server-side copy of the weekly template ----------
    Duplicated deliberately. The browser copy drives the UI; this one is the
    authority. A hand-crafted POST cannot book 3am by editing the page. */
-const AVAILABILITY = {
+/* The weekly template. This is the fallback shipped with the code — the live
+   one lives in KV so it can be edited from /admin/ without a deploy. If KV is
+   unset, unreachable, or holds anything malformed, we fall back to this. Never
+   fail open: a broken template must never mean "everything is available". */
+const DEFAULT_AVAILABILITY = {
   virtual: [
     { day: 1, start: "08:00", end: "09:00" },
     { day: 2, start: "08:00", end: "09:00" },
@@ -44,6 +48,74 @@ const AVAILABILITY = {
   ],
 };
 
+const AVAIL_KEY = "availability";
+
+/* ---- template storage ---------------------------------------------------- */
+
+// Every window must be a real day, a real HH:MM pair, and start before end.
+// Anything else and we reject the whole payload rather than half-applying it.
+function validateAvailability(v) {
+  if (!v || typeof v !== "object") return "not an object";
+  for (const mode of ["virtual", "inperson"]) {
+    if (!Array.isArray(v[mode])) return `${mode} must be a list`;
+    if (v[mode].length > 40) return `${mode} has too many windows`;
+    for (const w of v[mode]) {
+      if (!w || typeof w !== "object") return `${mode}: bad window`;
+      if (!Number.isInteger(w.day) || w.day < 0 || w.day > 6)
+        return `${mode}: day must be 0-6`;
+      for (const k of ["start", "end"]) {
+        if (typeof w[k] !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(w[k]))
+          return `${mode}: ${k} must be HH:MM`;
+      }
+      const mins = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+      if (mins(w.end) <= mins(w.start)) return `${mode}: end must be after start`;
+    }
+  }
+  return null;
+}
+
+async function loadAvailability(env) {
+  if (!env.SETTINGS) return DEFAULT_AVAILABILITY;      // KV not bound yet
+  try {
+    const raw = await env.SETTINGS.get(AVAIL_KEY);
+    if (!raw) return DEFAULT_AVAILABILITY;
+    const parsed = JSON.parse(raw);
+    if (validateAvailability(parsed)) return DEFAULT_AVAILABILITY;
+    return { virtual: parsed.virtual, inperson: parsed.inperson };
+  } catch {
+    return DEFAULT_AVAILABILITY;                        // KV down, keep serving
+  }
+}
+
+// Constant-time compare so a wrong token can't be narrowed down by timing.
+function tokenOk(env, request) {
+  const expected = String(env.ADMIN_TOKEN || "");
+  if (!expected) return false;                          // no token set = locked
+  const got = String(request.headers.get("x-admin-token") || "");
+  if (got.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= got.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
+
+async function handleGetAvailability(env) {
+  return { availability: await loadAvailability(env), source: env.SETTINGS ? "kv" : "default" };
+}
+
+async function handlePutAvailability(request, env) {
+  if (!tokenOk(env, request)) throw fail("Not authorised", 401);
+  if (!env.SETTINGS) throw fail("No KV namespace bound — see SETUP.md", 500);
+
+  const body = await request.json();
+  const v = body && body.availability;
+  const problem = validateAvailability(v);
+  if (problem) throw fail(`Rejected: ${problem}`, 400);
+
+  const clean = { virtual: v.virtual, inperson: v.inperson };
+  await env.SETTINGS.put(AVAIL_KEY, JSON.stringify(clean));
+  return { ok: true, availability: clean, savedAt: new Date().toISOString() };
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -57,6 +129,12 @@ export default {
 
       if (url.pathname === "/book" && request.method === "POST")
         return json(await handleBook(await request.json(), env), 200, cors);
+
+      if (url.pathname === "/availability" && request.method === "GET")
+        return json(await handleGetAvailability(env), 200, cors);
+
+      if (url.pathname === "/availability" && request.method === "PUT")
+        return json(await handlePutAvailability(request, env), 200, cors);
 
       return json({ error: "Not found" }, 404, cors);
     } catch (err) {
@@ -183,8 +261,11 @@ async function handleFreeBusy(url, env, ctx) {
   // 60s edge cache keeps us far under Google's quota even under load.
   const cacheKey = new Request(url.toString(), { method: "GET" });
   const cache = caches.default;
+  // The template is merged in after the cache lookup, not stored in it — a
+  // 60s-stale busy list is fine, a 60s-stale template means an edit appears
+  // not to have taken.
   const hit = await cache.match(cacheKey);
-  if (hit) return hit.json();
+  if (hit) return { ...(await hit.json()), availability: await loadAvailability(env) };
 
   const busy = await fetchBusy(start, end, env);
   const payload = {
@@ -201,7 +282,7 @@ async function handleFreeBusy(url, env, ctx) {
       })
     )
   );
-  return payload;
+  return { ...payload, availability: await loadAvailability(env) };
 }
 
 /* ---------------- booking ---------------- */
@@ -230,7 +311,7 @@ function tzParts(instant, tz) {
   return { y: +p.year, m: +p.month, d: +p.day, dow: dow[p.weekday] };
 }
 
-function windowsFor(mode) {
+function windowsFor(mode, AVAILABILITY) {
   // "anyvirtual" = video in any hour Shawn is working, which is the union of
   // both templates. Sent only by /virtual/. Without this the Worker would reject
   // in-person hours submitted as video, and the page would look fine right up
@@ -239,9 +320,9 @@ function windowsFor(mode) {
   return AVAILABILITY[mode] || [];
 }
 
-function insideTemplate(startMs, endMs, mode, tz) {
+function insideTemplate(startMs, endMs, mode, tz, AVAILABILITY) {
   const p = tzParts(new Date(startMs), tz);
-  return windowsFor(mode).some((w) => {
+  return windowsFor(mode, AVAILABILITY).some((w) => {
     if (w.day !== p.dow) return false;
     const [sh, sm] = w.start.split(":").map(Number);
     const [eh, em] = w.end.split(":").map(Number);
@@ -271,7 +352,10 @@ async function handleBook(body, env) {
   const tz = env.PRACTICE_TZ || "America/Los_Angeles";
 
   if (!start || !end || !mode) throw fail("Missing start, end or mode", 400);
-  if (!windowsFor(mode).length) throw fail("Unknown session type", 400);
+  // The live template, not the constant — otherwise an edit made in /admin/
+  // would show on the page but be rejected here.
+  const AVAILABILITY = await loadAvailability(env);
+  if (!windowsFor(mode, AVAILABILITY).length) throw fail("Unknown session type", 400);
   if (!name || !String(name).trim()) throw fail("Name is required", 400);
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw fail("A valid email is required", 400);
 
@@ -289,7 +373,8 @@ async function handleBook(body, env) {
         : `Please pick a time at least ${noticeHrs} hours out`,
       400);
   }
-  if (!insideTemplate(s, e, mode, tz)) throw fail("That time is outside my available hours", 409);
+  if (!insideTemplate(s, e, mode, tz, AVAILABILITY))
+    throw fail("That time is outside my available hours", 409);
 
   // Re-check against the live calendar immediately before writing.
   const busy = await fetchBusy(new Date(s).toISOString(), new Date(e).toISOString(), env);
@@ -310,7 +395,7 @@ async function handleBook(body, env) {
       `Kind: ${kind === "reschedule" ? "Rescheduling an existing session" : "New session"}\n` +
       (mode !== "inperson" && locationFor(mode, env)
         ? `\nJoin: ${locationFor(mode, env)}\n` : "") +
-      (notes ? `\nNotes: ${clean(notes, 800)}\n` : "") +
+      (notes ? `\nNotes: ${clean(notes, 800)}\n` : "") +   // kept: older pages may still send it
       `\nUnconfirmed until you reply.`,
     start: { dateTime: new Date(s).toISOString(), timeZone: tz },
     end: { dateTime: new Date(e).toISOString(), timeZone: tz },

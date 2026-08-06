@@ -19,6 +19,8 @@ bookshawn/
 │   └── index.html      your two-week planner  ->  /bookshawn/weekview/
 ├── virtual/
 │   └── index.html      video-only, extended  ->  /bookshawn/virtual/
+├── admin/
+│   └── index.html      edit your weekly hours ->  /bookshawn/admin/
 ├── robots.txt          keeps all of it out of search
 ├── SETUP.md            this file (reference)
 ├── NEXT-STEPS.md       follow this one, top to bottom
@@ -339,6 +341,25 @@ Other knobs in `CONFIG`:
 `sessionMins` also lives in `worker.js` as `SESSION_MINUTES`.
 
 ---
+
+## What the form collects, and why that's the whole answer
+
+Two fields: **initials** and **email**. No name, no free-text box.
+
+That's a deliberate privacy design, not a simplification. The earlier form had a
+notes field, and a notes field on a page headed "book a therapy session" is where
+someone writes *"I've been having panic attacks."* No warning reliably stops that
+— people answer the question in front of them.
+
+Removing the box removes the problem. What now reaches Cloudflare is two initials
+and an email address. Still enough to infer someone is seeking therapy, so treat
+it carefully — but there is nowhere to type a symptom, a diagnosis, or a history.
+
+`dev/test-cal.js` asserts the form has **zero** textareas and exactly two inputs.
+If someone adds a "tell me more" box later, the suite fails. That's intentional.
+
+Anything a client wants to tell you goes in the email reply, which is a channel
+you control.
 
 ## Read this before you take real bookings
 
@@ -917,3 +938,75 @@ the decision.
 Selecting a day, paging to another week, and paging back used to leave the slot
 panel showing a date that appeared nowhere in the rail — times for a day nothing
 was highlighting. The selection now clears when it scrolls out of view.
+
+---
+
+## /admin/ — editing your hours without a deploy
+
+<https://cavatello.github.io/bookshawn/admin/>
+
+The weekly template used to live in four files. It now lives in **Cloudflare KV**,
+and the Worker hands it back with every `/freebusy` response — so editing it here
+updates the booking page, the video page and the planner at once, with no deploy
+and no git.
+
+### Setting it up (once)
+
+```bash
+cd worker
+npx wrangler kv namespace create SETTINGS
+```
+
+Paste the id it prints into `wrangler.toml`, replacing
+`REPLACE_WITH_YOUR_KV_NAMESPACE_ID`. Then set a password:
+
+```bash
+npx wrangler secret put ADMIN_TOKEN
+```
+
+Use something long and random — a password manager's generator is ideal. Then:
+
+```bash
+npx wrangler deploy
+```
+
+Until KV is bound, everything still works: the Worker falls back to the template
+baked into `worker.js`. Until `ADMIN_TOKEN` is set, `/admin/` is locked and every
+write is refused.
+
+### What protects it
+
+**The page is public and its source is readable** — the repo is public, so treat
+the URL as known, not secret. The token does all the work: it lives only in
+Cloudflare, the Worker checks it on every write with a constant-time comparison,
+and the page holds nothing but a copy you typed in, kept in your own browser.
+
+If the token ever leaked, the blast radius is that someone could change your
+standing hours. Annoying, visible immediately, and fixed by rotating the token.
+No client data is reachable through it.
+
+### What saving does and doesn't do
+
+It replaces the standing template. It **never** touches your calendar, moves a
+booked session, or cancels anything. Narrowing a window that already contains a
+session leaves that session exactly where it is — it just stops being offered to
+anyone new.
+
+### Guards
+
+The editor refuses to save a template that would be broken:
+
+- end before start
+- a window too short for a 53-minute session
+- two windows overlapping on the same day
+
+The Worker validates independently, so a hand-crafted request can't bypass the UI.
+Anything malformed in KV makes the Worker fall back to the baked-in default —
+**never** to "everything is available".
+
+### The four-copy problem, mostly solved
+
+`AVAILABILITY` still appears in each page, but only as a fallback for a Worker
+that hasn't been deployed yet. In normal operation all three pages use whatever
+the Worker sends. You no longer need to edit four files to change your hours —
+you use `/admin/`.

@@ -341,12 +341,9 @@
     <div class="book" id="book" hidden>
       <p class="book-when" id="bookWhen"></p>
       <p class="book-tz" id="bookTz"></p>
-      <div class="field"><label for="bName">Your name</label><input id="bName" type="text" autocomplete="name" /></div>
+      <div class="field"><label for="bName">Your initials <span class="opt">Initials only &mdash; e.g. SW</span></label><input id="bName" type="text" autocomplete="off" maxlength="6" placeholder="SW" /></div>
       <div class="field"><label for="bEmail">Email</label><input id="bEmail" type="email" autocomplete="email" /></div>
-      <div class="field"><label for="bNote">Anything I should know? <span class="opt">Optional &mdash; and do say if you're rescheduling</span></label><textarea id="bNote"></textarea></div>
-      <p class="reassure" id="bReassure"></p>
       <button class="cta cta-submit" id="bSubmit">Request this time</button>
-      <p class="privacy">Nothing is charged now, and this isn't a secure channel for health information &mdash; please keep clinical detail out of the box above.</p>
       <div class="result" id="bResult" hidden></div>
     </div>
   </div>
@@ -406,7 +403,7 @@
     <a class="cta" href="mailto:shawn@agoodplacetherapy.com?subject=Session%20enquiry">Email me</a>
   </div>
 
-  <p class="mode-note" id="modeNote"><b>New here, or rescheduling?</b> Either is welcome &mdash; if we've met before, just say so in the notes box when you pick a time.</p>
+  <p class="mode-note" id="modeNote"><b>New here, or rescheduling?</b> Either is welcome. I'll reply by email to confirm, and you can tell me anything I should know then.</p>
 
   <div class="status" id="status" role="status" aria-live="polite">
     <span class="dot"></span><span id="statusText">Checking my calendar…</span>
@@ -641,6 +638,12 @@ function loadBusy(){
       state.busy = (j.busy || []).map(function(b){
         return { start: Date.parse(b.start), end: Date.parse(b.end) };
       }).filter(function(b){ return b.start && b.end; });
+      // The Worker is the source of truth for the weekly template, so editing
+      // it in /admin/ updates every page without a deploy. AVAILABILITY below
+      // is only the fallback for a Worker that hasn't been updated yet.
+      if (j.availability && j.availability.virtual && j.availability.inperson){
+        AVAILABILITY = j.availability;
+      }
       state.status = "live";
       state.fetchedAt = Date.now();
     })
@@ -788,17 +791,6 @@ function renderBook(){
   }
   $("bookTz").textContent = tzLine;
 
-  // Name what happens next, in plain terms, immediately before the button.
-  // The commonest reason someone stalls here is not knowing what they're
-  // committing to — not needing another nudge.
-  var re = $("bReassure");
-  re.innerHTML = "";
-  re.appendChild(document.createTextNode("This is a request, not a booking — "));
-  var b = document.createElement("b");
-  b.textContent = "I'll email you to confirm";
-  re.appendChild(b);
-  re.appendChild(document.createTextNode(
-    ", usually the same day. If the time stops working, just reply and we'll move it."));
 }
 
 function renderConfirm(){
@@ -963,7 +955,7 @@ function render(){
 function submitBooking(){
   var name = $("bName").value.trim();
   var email = $("bEmail").value.trim();
-  var note = $("bNote").value.trim();
+  var note = "";
   var res = $("bResult");
   res.hidden = false;
 
@@ -1096,7 +1088,7 @@ $("cIcs").onclick = function(){
 $("cAgain").onclick = function(){
   state.booked = null;
   state.selectedSlot = null;
-  $("bName").value = ""; $("bEmail").value = ""; $("bNote").value = "";
+  $("bName").value = ""; $("bEmail").value = "";
   $("bResult").hidden = true;
   render();
   $("railhead").scrollIntoView({ behavior: "smooth", block: "center" });

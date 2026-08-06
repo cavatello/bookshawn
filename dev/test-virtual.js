@@ -92,7 +92,7 @@ const envNoise = t => /ERR_CERT_AUTHORITY_INVALID|fonts\.googleapis|fonts\.gstat
   await page.locator('#slots .slot').first().click(); await page.waitForTimeout(250);
   ok('booking panel says Virtual', /Virtual/.test(await page.textContent('#bookWhen')),
     await page.textContent('#bookWhen'));
-  await page.fill('#bName', 'Video Person');
+  await page.fill('#bName', 'VP');
   await page.fill('#bEmail', 'v@example.com');
   await page.click('#bSubmit'); await page.waitForTimeout(900);
   ok('confirmation appears', await page.locator('#confirm').isVisible());
@@ -107,7 +107,7 @@ const envNoise = t => /ERR_CERT_AUTHORITY_INVALID|fonts\.googleapis|fonts\.gstat
   // sends plain "virtual", in-person hours get rejected on submit.
   ok('POST carries mode anyvirtual', booked.mode === 'anyvirtual', booked.mode);
   ok('POST carries the visitor details',
-    booked.name === 'Video Person' && booked.email === 'v@example.com');
+    booked.name === 'VP' && booked.email === 'v@example.com');
 
   console.log('\n[4] Fails closed like the others');
   const p2 = await ctx.newPage();

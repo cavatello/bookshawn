@@ -128,7 +128,7 @@ function testsPass() {
   }
   if (!up) { server.kill(); log(r("could not start the test server")); return false; }
 
-  const suites = ["test-cal.js", "test-virtual.js", "test-weekview.js"];
+  const suites = ["test-cal.js", "test-virtual.js", "test-weekview.js", "test-admin.js"];
   let res = null;
   for (const suite of suites) {
     res = spawnSync("node", [suite], {
